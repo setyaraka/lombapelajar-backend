@@ -1,6 +1,6 @@
-import js from '@eslint/js'
-import globals from 'globals'
-import prettier from 'eslint-plugin-prettier'
+import js from '@eslint/js';
+import globals from 'globals';
+import prettier from 'eslint-plugin-prettier';
 
 export default [
   js.configs.recommended,
@@ -26,4 +26,4 @@ export default [
       'no-undef': 'error',
     },
   },
-]
+];
