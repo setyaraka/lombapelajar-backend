@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Competition {
+  id           String         @id
+  title        String
+  description  String
+  poster       String?
+  level        String
+  category     String
+  deadline     DateTime
+  price        Int
+  createdAt    DateTime       @default(now())
+  Registration Registration[]
+}
+
+model PaymentProof {
+  id             String        @id
+  registrationId String        @unique
+  fileUrl        String
+  status         PaymentStatus @default(PENDING)
+  uploadedAt     DateTime      @default(now())
+  Registration   Registration  @relation(fields: [registrationId], references: [id])
+}
+
+model Registration {
+  id            String             @id
+  userId        String
+  competitionId String
+  phone         String
+  school        String
+  nisn          String
+  address       String
+  status        RegistrationStatus @default(PENDING)
+  createdAt     DateTime           @default(now())
+  PaymentProof  PaymentProof?
+  Competition   Competition        @relation(fields: [competitionId], references: [id])
+  User          User               @relation(fields: [userId], references: [id])
+}
+
+model User {
+  id           String         @id
+  name         String
+  email        String         @unique
+  password     String
+  role         Role           @default(PESERTA)
+  createdAt    DateTime       @default(now())
+  Registration Registration[]
+}
+
+enum PaymentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum Role {
+  ADMIN
+  PESERTA
+}
