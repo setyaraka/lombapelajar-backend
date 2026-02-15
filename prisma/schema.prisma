@@ -1,6 +1,6 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider   = "prisma-client-js"
+  engineType = "binary"
 }
 
 datasource db {
@@ -9,7 +9,7 @@ datasource db {
 }
 
 model Competition {
-  id           String         @id
+  id           String         @id @default(uuid())
   title        String
   description  String
   poster       String?
@@ -22,7 +22,7 @@ model Competition {
 }
 
 model PaymentProof {
-  id             String        @id
+  id             String        @id @default(uuid())
   registrationId String        @unique
   fileUrl        String
   status         PaymentStatus @default(PENDING)
@@ -31,7 +31,7 @@ model PaymentProof {
 }
 
 model Registration {
-  id            String             @id
+  id            String             @id @default(uuid())
   userId        String
   competitionId String
   phone         String
@@ -46,7 +46,7 @@ model Registration {
 }
 
 model User {
-  id           String         @id
+  id           String         @id @default(uuid())
   name         String
   email        String         @unique
   password     String
