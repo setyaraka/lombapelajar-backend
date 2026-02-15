@@ -18,7 +18,7 @@ model Competition {
   deadline     DateTime
   price        Int
   createdAt    DateTime       @default(now())
-  Registration Registration[]
+  registrations Registration[]
 }
 
 model PaymentProof {
@@ -27,7 +27,7 @@ model PaymentProof {
   fileUrl        String
   status         PaymentStatus @default(PENDING)
   uploadedAt     DateTime      @default(now())
-  Registration   Registration  @relation(fields: [registrationId], references: [id])
+  registrations   Registration  @relation(fields: [registrationId], references: [id])
 }
 
 model Registration {
@@ -40,9 +40,9 @@ model Registration {
   address       String
   status        RegistrationStatus @default(PENDING)
   createdAt     DateTime           @default(now())
-  PaymentProof  PaymentProof?
-  Competition   Competition        @relation(fields: [competitionId], references: [id])
-  User          User               @relation(fields: [userId], references: [id])
+  paymentProof  PaymentProof?
+  competition   Competition        @relation(fields: [competitionId], references: [id])
+  user          User               @relation(fields: [userId], references: [id])
 }
 
 model User {
@@ -52,7 +52,7 @@ model User {
   password     String
   role         Role           @default(PESERTA)
   createdAt    DateTime       @default(now())
-  Registration Registration[]
+  registrations Registration[]
 }
 
 enum PaymentStatus {
