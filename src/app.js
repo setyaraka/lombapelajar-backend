@@ -5,6 +5,7 @@ import authRoutes from './routes/auth.routes.js';
 import competitionRoutes from './routes/competition.routes.js';
 import registrationRoutes from './routes/registration.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
+import adminRoutes from './routes/admin.routes.js';
 
 dotenv.config();
 const app = express();
@@ -16,6 +17,7 @@ app.use('/auth', authRoutes);
 app.use('/competitions', competitionRoutes);
 app.use('/registrations', registrationRoutes);
 app.use('/payments', paymentRoutes);
+app.use('/admin', adminRoutes);
 
 app.use('/uploads', express.static('uploads'));
 
