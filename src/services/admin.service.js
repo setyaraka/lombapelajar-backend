@@ -28,7 +28,7 @@ export const approvePayment = async (paymentId) => {
   });
 
   if (!proof) throw new Error('Payment proof not found');
-  
+
   return prisma.$transaction([
     prisma.paymentProof.update({
       where: { id: paymentId },
