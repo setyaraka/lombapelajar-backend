@@ -7,6 +7,7 @@ const router = express.Router();
 
 router.get('/', ctrl.list);
 router.get('/:id', ctrl.detail);
+router.get('/:id/participants', ctrl.participants);
 
 router.post('/', authMiddleware, adminOnly, ctrl.create);
 router.put('/:id', authMiddleware, adminOnly, ctrl.update);

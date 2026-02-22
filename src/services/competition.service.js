@@ -150,3 +150,25 @@ export const deleteCompetition = async (id) => {
     });
   });
 };
+
+export const getCompetitionParticipants = async (competitionId) => {
+  const registrations = await prisma.registration.findMany({
+    where: { competitionId },
+    include: {
+      user: true,
+      paymentProof: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return registrations.map((r) => ({
+    id: r.id,
+    name: r.user.name,
+    school: r.school,
+    status: !r.paymentProof
+      ? 'pending'
+      : r.paymentProof.status === 'VERIFIED'
+        ? 'verified'
+        : 'rejected',
+  }));
+};

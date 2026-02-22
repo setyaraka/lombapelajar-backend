@@ -42,3 +42,15 @@ export const remove = async (req, res) => {
     res.status(500).json({ message: 'Failed to delete competition' });
   }
 };
+
+export const participants = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const data = await service.getCompetitionParticipants(id);
+
+    res.json(data);
+  } catch {
+    res.status(500).json({ message: 'Failed to get Participant' });
+  }
+};
