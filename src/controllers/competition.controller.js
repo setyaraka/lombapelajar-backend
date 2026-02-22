@@ -1,8 +1,13 @@
 import * as service from '../services/competition.service.js';
 
 export const list = async (req, res) => {
-  const data = await service.getAllCompetitions();
-  res.json(data);
+  try {
+    const data = await service.getAllCompetitions(req.query);
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Internal server error" });
+  }
 };
 
 export const detail = async (req, res) => {
