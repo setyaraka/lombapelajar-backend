@@ -13,7 +13,31 @@ export const getCompetitionById = async (id) => {
 };
 
 export const createCompetition = async (data) => {
-  return prisma.competition.create({ data });
+  const { requirements, timeline, ...competition } = data;
+
+  return prisma.competition.create({
+    data: {
+      ...competition,
+      deadline: new Date(competition.deadline),
+      price: Number(competition.price),
+
+      requirements: {
+        create: requirements.map((text) => ({ text })),
+      },
+
+      timelines: {
+        create: timeline.map((t) => ({
+          title: t.title,
+          startDate: new Date(t.startDate),
+          endDate: new Date(t.endDate),
+        })),
+      },
+    },
+    include: {
+      requirements: true,
+      timelines: true,
+    },
+  });
 };
 
 export const updateCompetition = async (id, data) => {

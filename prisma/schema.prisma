@@ -18,6 +18,9 @@ model Competition {
   deadline     DateTime
   price        Int
   createdAt    DateTime       @default(now())
+
+  requirements  CompetitionRequirement[]
+  timelines     CompetitionTimeline[]
   registrations Registration[]
 }
 
@@ -55,6 +58,24 @@ model User {
   school       String?
   createdAt    DateTime       @default(now())
   registrations Registration[]
+}
+
+model CompetitionRequirement {
+  id            String @id @default(uuid())
+  competitionId String
+  text          String
+
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+}
+
+model CompetitionTimeline {
+  id            String @id @default(uuid())
+  competitionId String
+  title         String
+  startDate     DateTime
+  endDate       DateTime
+
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
 }
 
 enum PaymentStatus {
