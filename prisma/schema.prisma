@@ -51,6 +51,8 @@ model User {
   email        String         @unique
   password     String
   role         Role           @default(PESERTA)
+  birthDate    DateTime?
+  school       String?
   createdAt    DateTime       @default(now())
   registrations Registration[]
 }

@@ -5,19 +5,27 @@ import prisma from '../lib/prisma.js';
 const JWT_SECRET = process.env.JWT_SECRET;
 
 // REGISTER
-export const registerUser = async ({ name, email, password }) => {
+export const registerUser = async ({ name, email, password, birthDate, school }) => {
   const exist = await prisma.user.findUnique({ where: { email } });
   if (exist) throw new Error('Email already registered');
 
   const hashed = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.create({
-    data: { name, email, password: hashed },
+    data: { 
+      name, 
+      email, 
+      password: hashed,
+      birthDate: birthDate ? new Date(birthDate) : null,
+      school,
+    },
     select: {
       id: true,
       name: true,
       email: true,
       role: true,
+      birthDate: true,
+      school: true,
     },
   });
 
