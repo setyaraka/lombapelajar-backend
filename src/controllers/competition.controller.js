@@ -6,7 +6,7 @@ export const list = async (req, res) => {
     res.json(data);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -27,5 +27,18 @@ export const update = async (req, res) => {
     res.json(data);
   } catch (err) {
     res.status(404).json({ message: err.message });
+  }
+};
+
+export const remove = async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    await service.deleteCompetition(id);
+
+    res.json({ message: 'Competition deleted' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Failed to delete competition' });
   }
 };

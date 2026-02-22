@@ -12,9 +12,9 @@ export const registerUser = async ({ name, email, password, birthDate, school })
   const hashed = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.create({
-    data: { 
-      name, 
-      email, 
+    data: {
+      name,
+      email,
       password: hashed,
       birthDate: birthDate ? new Date(birthDate) : null,
       school,

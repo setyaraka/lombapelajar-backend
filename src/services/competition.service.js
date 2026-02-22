@@ -3,15 +3,15 @@ import prisma from '../lib/prisma.js';
 export const getAllCompetitions = async (query) => {
   const page = Number(query.page) || 1;
   const perPage = Number(query.perPage) || 10;
-  const search = query.search || "";
-  const level = query.level || "";
-  const category = query.category || "";
+  const search = query.search || '';
+  const level = query.level || '';
+  const category = query.category || '';
 
   const where = {
     AND: [
       search
         ? {
-            title: { contains: search, mode: "insensitive" },
+            title: { contains: search, mode: 'insensitive' },
           }
         : {},
       level ? { level } : {},
@@ -24,7 +24,7 @@ export const getAllCompetitions = async (query) => {
 
     prisma.competition.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       skip: (page - 1) * perPage,
       take: perPage,
       include: {
@@ -42,7 +42,7 @@ export const getAllCompetitions = async (query) => {
     level: c.level,
     deadline: c.deadline,
     participants: c._count.registrations,
-    status: c.deadline < now ? "closed" : "open",
+    status: c.deadline < now ? 'closed' : 'open',
   }));
 
   return {
@@ -96,9 +96,8 @@ export const createCompetition = async (data) => {
 
 export const updateCompetition = async (id, body) => {
   return prisma.$transaction(async (tx) => {
-
-    await tx.competitionRequirement.deleteMany({ where: { competitionId: id }});
-    await tx.competitionTimeline.deleteMany({ where: { competitionId: id }});
+    await tx.competitionRequirement.deleteMany({ where: { competitionId: id } });
+    await tx.competitionTimeline.deleteMany({ where: { competitionId: id } });
 
     return tx.competition.update({
       where: { id },
@@ -112,17 +111,42 @@ export const updateCompetition = async (id, body) => {
         price: Number(body.price),
 
         requirements: {
-          create: body.requirements.map(text => ({ text })),
+          create: body.requirements.map((text) => ({ text })),
         },
         timelines: {
-          create: body.timeline.map(t => ({
+          create: body.timeline.map((t) => ({
             title: t.title,
             startDate: new Date(t.startDate),
             endDate: new Date(t.endDate),
           })),
         },
       },
-      include: { requirements:true, timelines:true }
+      include: { requirements: true, timelines: true },
+    });
+  });
+};
+
+export const deleteCompetition = async (id) => {
+  return prisma.$transaction(async (tx) => {
+    const registrations = await tx.registration.findMany({
+      where: { competitionId: id },
+      select: { id: true },
+    });
+
+    const registrationIds = registrations.map((r) => r.id);
+
+    if (registrationIds.length > 0) {
+      await tx.paymentProof.deleteMany({
+        where: { registrationId: { in: registrationIds } },
+      });
+    }
+
+    await tx.registration.deleteMany({
+      where: { competitionId: id },
+    });
+
+    await tx.competition.delete({
+      where: { id },
     });
   });
 };

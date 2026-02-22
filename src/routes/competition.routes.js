@@ -10,5 +10,6 @@ router.get('/:id', ctrl.detail);
 
 router.post('/', authMiddleware, adminOnly, ctrl.create);
 router.put('/:id', authMiddleware, adminOnly, ctrl.update);
+router.delete('/:id', authMiddleware, adminOnly, ctrl.remove);
 
 export default router;
