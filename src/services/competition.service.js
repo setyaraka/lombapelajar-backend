@@ -1,10 +1,5 @@
 import prisma from '../lib/prisma.js';
 
-// export const getAllCompetitions = async () => {
-//   return prisma.competition.findMany({
-//     orderBy: { createdAt: 'desc' },
-//   });
-// };
 export const getAllCompetitions = async (query) => {
   const page = Number(query.page) || 1;
   const perPage = Number(query.perPage) || 10;
@@ -64,6 +59,10 @@ export const getAllCompetitions = async (query) => {
 export const getCompetitionById = async (id) => {
   return prisma.competition.findUnique({
     where: { id },
+    include: {
+      requirements: true,
+      timelines: true,
+    },
   });
 };
 
@@ -95,12 +94,35 @@ export const createCompetition = async (data) => {
   });
 };
 
-export const updateCompetition = async (id, data) => {
-  const exist = await prisma.competition.findUnique({ where: { id } });
-  if (!exist) throw new Error('Competition not found');
+export const updateCompetition = async (id, body) => {
+  return prisma.$transaction(async (tx) => {
 
-  return prisma.competition.update({
-    where: { id },
-    data,
+    await tx.competitionRequirement.deleteMany({ where: { competitionId: id }});
+    await tx.competitionTimeline.deleteMany({ where: { competitionId: id }});
+
+    return tx.competition.update({
+      where: { id },
+      data: {
+        title: body.title,
+        description: body.description,
+        poster: body.poster,
+        level: body.level,
+        category: body.category,
+        deadline: new Date(body.deadline),
+        price: Number(body.price),
+
+        requirements: {
+          create: body.requirements.map(text => ({ text })),
+        },
+        timelines: {
+          create: body.timeline.map(t => ({
+            title: t.title,
+            startDate: new Date(t.startDate),
+            endDate: new Date(t.endDate),
+          })),
+        },
+      },
+      include: { requirements:true, timelines:true }
+    });
   });
 };
