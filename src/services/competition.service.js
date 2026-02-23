@@ -1,21 +1,27 @@
 import prisma from '../lib/prisma.js';
 
-export const getAllCompetitions = async (query) => {
+export const getAllCompetitions = async (query, userId) => {
   const page = Number(query.page) || 1;
   const perPage = Number(query.perPage) || 10;
-  const search = query.search || '';
-  const level = query.level || '';
-  const category = query.category || '';
+  const search = query.search || "";
+  const level = query.level || "";
+  const category = query.category || "";
+  const joined = query.joined === "true";
 
   const where = {
     AND: [
       search
-        ? {
-            title: { contains: search, mode: 'insensitive' },
-          }
+        ? { title: { contains: search, mode: "insensitive" } }
         : {},
       level ? { level } : {},
       category ? { category } : {},
+      joined
+        ? {
+            registrations: {
+              some: { userId },
+            },
+          }
+        : {},
     ],
   };
 
@@ -24,11 +30,18 @@ export const getAllCompetitions = async (query) => {
 
     prisma.competition.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       skip: (page - 1) * perPage,
       take: perPage,
       include: {
         _count: { select: { registrations: true } },
+
+        registrations: userId
+          ? {
+              where: { userId },
+              select: { id: true },
+            }
+          : false,
       },
     }),
   ]);
@@ -42,18 +55,18 @@ export const getAllCompetitions = async (query) => {
     level: c.level,
     deadline: c.deadline,
     participants: c._count.registrations,
-    status: c.deadline < now ? 'closed' : 'open',
+    status: c.deadline < now ? "closed" : "open",
     poster: c.poster,
+
+    submitted: userId ? c.registrations.length > 0 : false,
   }));
 
   return {
     data: mapped,
-    meta: {
-      page,
-      perPage,
-      total,
-      totalPages: Math.ceil(total / perPage),
-    },
+    page,
+    perPage,
+    total,
+    totalPages: Math.ceil(total / perPage),
   };
 };
 
@@ -121,7 +134,6 @@ export const updateCompetition = async (id, body) => {
         deadline: new Date(body.deadline),
         price: Number(body.price),
 
-        // 🔥 NEW FIELD
         bankName: body.bankName || null,
         bankNumber: body.bankNumber || null,
         bankHolder: body.bankHolder || null,

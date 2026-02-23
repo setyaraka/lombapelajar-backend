@@ -2,7 +2,8 @@ import * as service from '../services/competition.service.js';
 
 export const list = async (req, res) => {
   try {
-    const data = await service.getAllCompetitions(req.query);
+    const userId = req.user?.id;
+    const data = await service.getAllCompetitions(req.query, userId);
     res.json(data);
   } catch (err) {
     console.error(err);
