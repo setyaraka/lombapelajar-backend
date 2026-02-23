@@ -72,9 +72,18 @@ export const createCompetition = async (data) => {
 
   return prisma.competition.create({
     data: {
-      ...competition,
+      title: competition.title,
+      description: competition.description,
+      poster: competition.poster,
+      level: competition.level,
+      category: competition.category,
+
       deadline: new Date(competition.deadline),
       price: Number(competition.price),
+
+      bankName: competition.bankName || null,
+      bankNumber: competition.bankNumber || null,
+      bankHolder: competition.bankHolder || null,
 
       requirements: {
         create: requirements.map((text) => ({ text })),
@@ -108,12 +117,19 @@ export const updateCompetition = async (id, body) => {
         poster: body.poster,
         level: body.level,
         category: body.category,
+
         deadline: new Date(body.deadline),
         price: Number(body.price),
+
+        // 🔥 NEW FIELD
+        bankName: body.bankName || null,
+        bankNumber: body.bankNumber || null,
+        bankHolder: body.bankHolder || null,
 
         requirements: {
           create: body.requirements.map((text) => ({ text })),
         },
+
         timelines: {
           create: body.timeline.map((t) => ({
             title: t.title,

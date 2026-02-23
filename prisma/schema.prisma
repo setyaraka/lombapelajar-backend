@@ -19,6 +19,10 @@ model Competition {
   price        Int
   createdAt    DateTime       @default(now())
 
+  bankName    String?
+  bankNumber  String?
+  bankHolder  String?
+
   requirements  CompetitionRequirement[]
   timelines     CompetitionTimeline[]
   registrations Registration[]
