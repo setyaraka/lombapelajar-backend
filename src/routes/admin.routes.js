@@ -9,8 +9,6 @@ router.use(authMiddleware, adminOnly);
 
 router.get('/registrations', ctrl.list);
 router.get('/registrations/:id', ctrl.detail);
-
-router.patch('/payments/:id/approve', ctrl.approve);
-router.patch('/payments/:id/reject', ctrl.reject);
+router.patch("/participants/:id/status", ctrl.updateStatus);
 
 export default router;

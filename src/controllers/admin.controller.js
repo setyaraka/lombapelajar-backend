@@ -1,8 +1,12 @@
 import * as service from '../services/admin.service.js';
 
 export const list = async (req, res) => {
-  const data = await service.getAllRegistrations();
-  res.json(data);
+  try {
+    const data = await service.getAllRegistrations(req.query);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ message: err.message });
+  }
 };
 
 export const detail = async (req, res) => {
@@ -25,5 +29,23 @@ export const reject = async (req, res) => {
     res.json({ message: 'Payment rejected' });
   } catch (err) {
     res.status(400).json({ message: err.message });
+  }
+};
+
+export const updateStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!["approved", "rejected"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const result = await service.updateRegistrationStatus({ id, status });
+
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to update status" });
   }
 };

@@ -1,14 +1,82 @@
 import prisma from '../lib/prisma.js';
 
-export const getAllRegistrations = async () => {
-  return prisma.registration.findMany({
-    include: {
-      user: { select: { name: true, email: true } },
-      competition: true,
-      paymentProof: true,
+export const getAllRegistrations = async (query) => {
+  const { page = 1, perPage = 10, search = "", status = "" } = query;
+
+  const where = {
+    AND: [
+      search
+        ? {
+            OR: [
+              { user: { name: { contains: search, mode: "insensitive" } } },
+              { school: { contains: search, mode: "insensitive" } },
+              { competition: { title: { contains: search, mode: "insensitive" } } },
+            ],
+          }
+        : {},
+      status
+        ? status === "pending"
+          ? { paymentProof: null }
+          : { paymentProof: { status: status.toUpperCase() } }
+        : {},
+    ],
+  };
+
+  const [data, total] = await Promise.all([
+    prisma.registration.findMany({
+      where,
+      include: {
+        user: true,
+        competition: true,
+        paymentProof: true,
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * perPage,
+      take: Number(perPage),
+    }),
+    prisma.registration.count({ where }),
+  ]);
+
+  const [pending, approved, rejected] = await Promise.all([
+    prisma.registration.count({
+      where: { paymentProof: null },
+    }),
+    prisma.registration.count({
+      where: { paymentProof: { status: "VERIFIED" } },
+    }),
+    prisma.registration.count({
+      where: { paymentProof: { status: "REJECTED" } },
+    }),
+  ]);
+
+
+  const participants = data.map((r) => ({
+    id: r.id,
+    name: r.user.name,
+    school: r.school,
+    competition: r.competition.title,
+    proofUrl: r.paymentProof?.fileUrl ?? null,
+    uploadedAt: r.paymentProof?.uploadedAt ?? null,
+    status: !r.paymentProof
+      ? "pending"
+      : r.paymentProof.status === "VERIFIED"
+      ? "approved"
+      : "rejected",
+  }));
+
+  return {
+    data: participants,
+    meta: {
+      total,
+      totalPages: Math.ceil(total / perPage),
     },
-    orderBy: { createdAt: 'desc' },
-  });
+    stats: {
+      pending,
+      approved,
+      rejected,
+      total: pending + approved + rejected,
+    },
+  };
 };
 
 export const getRegistrationDetail = async (id) => {
@@ -22,39 +90,25 @@ export const getRegistrationDetail = async (id) => {
   });
 };
 
-export const approvePayment = async (paymentId) => {
+export const updateRegistrationStatus = async ({ id, status }) => {
   const proof = await prisma.paymentProof.findUnique({
-    where: { id: paymentId },
-  });
-
-  if (!proof) throw new Error('Payment proof not found');
-
-  return prisma.$transaction([
-    prisma.paymentProof.update({
-      where: { id: paymentId },
-      data: { status: 'VERIFIED' },
-    }),
-    prisma.registration.update({
-      where: { id: proof.registrationId },
-      data: { status: 'APPROVED' },
-    }),
-  ]);
-};
-
-export const rejectPayment = async (paymentId) => {
-  const proof = await prisma.paymentProof.findUnique({
-    where: { id: paymentId },
+    where: { id },
   });
   if (!proof) throw new Error('Payment proof not found');
 
-  return prisma.$transaction([
+  const paymentStatus = status === "approved" ? "VERIFIED" : "REJECTED";
+  const registrationStatus = status === "approved" ? "APPROVED" : "REJECTED";
+
+  await prisma.$transaction([
     prisma.paymentProof.update({
-      where: { id: paymentId },
-      data: { status: 'REJECTED' },
+      where: { id },
+      data: { status: paymentStatus },
     }),
     prisma.registration.update({
       where: { id: proof.registrationId },
-      data: { status: 'REJECTED' },
+      data: { status: registrationStatus },
     }),
   ]);
+
+  return { message: "updated" };
 };
