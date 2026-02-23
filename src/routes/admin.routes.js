@@ -9,6 +9,6 @@ router.use(authMiddleware, adminOnly);
 
 router.get('/registrations', ctrl.list);
 router.get('/registrations/:id', ctrl.detail);
-router.patch("/participants/:id/status", ctrl.updateStatus);
+router.patch('/participants/:id/status', ctrl.updateStatus);
 
 export default router;

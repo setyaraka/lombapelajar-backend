@@ -43,6 +43,7 @@ export const getAllCompetitions = async (query) => {
     deadline: c.deadline,
     participants: c._count.registrations,
     status: c.deadline < now ? 'closed' : 'open',
+    poster: c.poster,
   }));
 
   return {
