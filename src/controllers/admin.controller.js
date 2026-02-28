@@ -37,7 +37,7 @@ export const updateStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!['approved', 'rejected'].includes(status)) {
+    if (!['VERIFIED', 'REJECTED'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status' });
     }
 
