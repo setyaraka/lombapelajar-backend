@@ -10,7 +10,7 @@ export const uploadPaymentProof = async (userId, registrationId, fileUrl) => {
 
   const proof = await prisma.paymentProof.upsert({
     where: { registrationId },
-    update: { 
+    update: {
       fileUrl,
       status: 'PENDING',
     },

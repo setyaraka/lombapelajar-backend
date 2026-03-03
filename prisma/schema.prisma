@@ -32,6 +32,7 @@ model PaymentProof {
   id             String        @id @default(uuid())
   registrationId String        @unique
   fileUrl        String
+  fileKey        String
   status         PaymentStatus @default(PENDING)
   uploadedAt     DateTime      @default(now())
   registrations   Registration  @relation(fields: [registrationId], references: [id])

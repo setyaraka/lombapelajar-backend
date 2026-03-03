@@ -3,16 +3,14 @@ import prisma from '../lib/prisma.js';
 export const getAllCompetitions = async (query, userId) => {
   const page = Number(query.page) || 1;
   const perPage = Number(query.perPage) || 10;
-  const search = query.search || "";
-  const level = query.level || "";
-  const category = query.category || "";
-  const joined = query.joined === "true";
+  const search = query.search || '';
+  const level = query.level || '';
+  const category = query.category || '';
+  const joined = query.joined === 'true';
 
   const where = {
     AND: [
-      search
-        ? { title: { contains: search, mode: "insensitive" } }
-        : {},
+      search ? { title: { contains: search, mode: 'insensitive' } } : {},
       level ? { level } : {},
       category ? { category } : {},
       joined
@@ -30,7 +28,7 @@ export const getAllCompetitions = async (query, userId) => {
 
     prisma.competition.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       skip: (page - 1) * perPage,
       take: perPage,
       include: {
@@ -55,7 +53,7 @@ export const getAllCompetitions = async (query, userId) => {
     level: c.level,
     deadline: c.deadline,
     participants: c._count.registrations,
-    status: c.deadline < now ? "closed" : "open",
+    status: c.deadline < now ? 'closed' : 'open',
     poster: c.poster,
 
     submitted: userId ? c.registrations.length > 0 : false,

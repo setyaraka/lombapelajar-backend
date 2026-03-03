@@ -46,3 +46,37 @@ export const myRegistrations = async (userId) => {
     paymentStatus: r.paymentProof?.status ?? null,
   }));
 };
+
+export const createRegistrationWithProof = async (userId, competitionId, data) => {
+  return prisma.$transaction(async (tx) => {
+    const comp = await tx.competition.findUnique({
+      where: { id: competitionId },
+    });
+    if (!comp) throw new Error('Competition not found');
+
+    const exist = await tx.registration.findFirst({
+      where: { userId, competitionId },
+    });
+    if (exist) throw new Error('You already registered');
+
+    const registration = await tx.registration.create({
+      data: {
+        userId,
+        competitionId,
+        phone: data.phone,
+        school: data.school,
+        nisn: data.nisn,
+        address: data.address,
+      },
+    });
+
+    await tx.paymentProof.create({
+      data: {
+        registrationId: registration.id,
+        fileKey: data.fileKey,
+      },
+    });
+
+    return registration;
+  });
+};

@@ -56,7 +56,7 @@ export const getAllRegistrations = async (query) => {
     competition: r.competition.title,
     proofUrl: r.paymentProof?.fileUrl ?? null,
     uploadedAt: r.paymentProof?.uploadedAt ?? null,
-    status: r.paymentProof?.status
+    status: r.paymentProof?.status,
   }));
 
   return {

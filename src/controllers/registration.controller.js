@@ -2,9 +2,16 @@ import * as service from '../services/registration.service.js';
 
 export const registerCompetition = async (req, res) => {
   try {
-    const data = await service.createRegistration(req.user.id, req.params.competitionId, req.body);
+    const { phone, school, nisn, address, fileUrl, fileKey } = req.body;
+
+    const data = await service.createRegistrationWithProof(
+      req.user.id,
+      req.params.competitionId,
+      { phone, school, nisn, address, fileUrl, fileKey }
+    );
+
     res.json(data);
-  } catch (err) {
+  } catch (err) { 
     res.status(400).json({ message: err.message });
   }
 };
