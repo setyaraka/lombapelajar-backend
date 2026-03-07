@@ -79,13 +79,13 @@ export const getCompetitionById = async (id) => {
 };
 
 export const createCompetition = async (data) => {
-  const { requirements, timeline, ...competition } = data;
+  const { requirements, timeline, poster, ...competition } = data;
 
   return prisma.competition.create({
     data: {
       title: competition.title,
       description: competition.description,
-      poster: competition.poster,
+      poster: poster || null,
       level: competition.level,
       category: competition.category,
 
