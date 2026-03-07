@@ -1,4 +1,5 @@
 import * as service from '../services/competition.service.js';
+import { uploadPoster } from '../services/upload.service.js';
 
 export const list = async (req, res) => {
   try {
@@ -18,16 +19,50 @@ export const detail = async (req, res) => {
 };
 
 export const create = async (req, res) => {
-  const data = await service.createCompetition(req.body);
-  res.json(data);
+  try {
+    let posterKey = null;
+
+    if (req.file) {
+      posterKey = await uploadPoster(req.file);
+    }
+
+    const payload = {
+      ...req.body,
+      poster: posterKey,
+      requirements: JSON.parse(req.body.requirements),
+      timeline: JSON.parse(req.body.timeline),
+    };
+
+    const data = await service.createCompetition(payload);
+
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Failed create competition' });
+  }
 };
 
 export const update = async (req, res) => {
   try {
-    const data = await service.updateCompetition(req.params.id, req.body);
+    let posterKey = req.body.poster;
+
+    if (req.file) {
+      posterKey = await uploadPoster(req.file);
+    }
+
+    const payload = {
+      ...req.body,
+      poster: posterKey,
+      requirements: JSON.parse(req.body.requirements),
+      timeline: JSON.parse(req.body.timeline),
+    };
+
+    const data = await service.updateCompetition(req.params.id, payload);
+
     res.json(data);
   } catch (err) {
-    res.status(404).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({ message: err.message });
   }
 };
 
