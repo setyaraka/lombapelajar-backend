@@ -18,11 +18,9 @@ model Competition {
   deadline     DateTime
   price        Int
   createdAt    DateTime       @default(now())
-
+  bankHolder   String?
   bankName    String?
   bankNumber  String?
-  bankHolder  String?
-
   requirements  CompetitionRequirement[]
   timelines     CompetitionTimeline[]
   registrations Registration[]
@@ -31,11 +29,10 @@ model Competition {
 model PaymentProof {
   id             String        @id @default(uuid())
   registrationId String        @unique
-  fileUrl        String
-  fileKey        String
   status         PaymentStatus @default(PENDING)
   uploadedAt     DateTime      @default(now())
-  registrations   Registration  @relation(fields: [registrationId], references: [id])
+  fileKey        String
+  registrations  Registration  @relation(fields: [registrationId], references: [id])
 }
 
 model Registration {
@@ -54,32 +51,30 @@ model Registration {
 }
 
 model User {
-  id           String         @id @default(uuid())
-  name         String
-  email        String         @unique
-  password     String
-  role         Role           @default(PESERTA)
-  birthDate    DateTime?
-  school       String?
-  createdAt    DateTime       @default(now())
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  password      String
+  role          Role           @default(PESERTA)
+  createdAt     DateTime       @default(now())
+  birthDate     DateTime?
+  school        String?
   registrations Registration[]
 }
 
 model CompetitionRequirement {
-  id            String @id @default(uuid())
+  id            String      @id @default(uuid())
   competitionId String
   text          String
-
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
 }
 
 model CompetitionTimeline {
-  id            String @id @default(uuid())
+  id            String      @id @default(uuid())
   competitionId String
   title         String
-  startDate     DateTime
   endDate       DateTime
-
+  startDate     DateTime
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
 }
 
