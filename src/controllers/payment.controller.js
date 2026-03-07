@@ -22,7 +22,9 @@ export const getUploadUrl = async (req, res) => {
   try {
     const { fileType } = req.body;
 
-    const fileKey = `payment-proofs/${crypto.randomUUID()}`;
+    const ext = fileType.split("/")[1];
+
+    const fileKey = `payment-proofs/${crypto.randomUUID()}.${ext}`;
 
     const command = new PutObjectCommand({
       Bucket: process.env.R2_BUCKET,
@@ -40,4 +42,4 @@ export const getUploadUrl = async (req, res) => {
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
-};
+} 

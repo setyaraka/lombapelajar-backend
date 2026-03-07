@@ -54,7 +54,7 @@ export const getAllRegistrations = async (query) => {
     name: r.user.name,
     school: r.school,
     competition: r.competition.title,
-    proofUrl: r.paymentProof?.fileUrl ?? null,
+    proofUrl: r.paymentProof?.fileKey ?? null,
     uploadedAt: r.paymentProof?.uploadedAt ?? null,
     status: r.paymentProof?.status,
   }));

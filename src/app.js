@@ -6,6 +6,7 @@ import competitionRoutes from './routes/competition.routes.js';
 import registrationRoutes from './routes/registration.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import { proxyFile } from './controllers/file.controller.js';
 
 dotenv.config();
 const app = express();
@@ -30,6 +31,8 @@ app.use('/competitions', competitionRoutes);
 app.use('/registrations', registrationRoutes);
 app.use('/payments', paymentRoutes);
 app.use('/admin', adminRoutes);
+
+app.get(/^\/files\/(.+)/, proxyFile);
 
 /* ================= STATIC FILE ================= */
 app.use('/uploads', express.static('uploads'));
