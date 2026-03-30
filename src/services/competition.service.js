@@ -1,3 +1,4 @@
+import { mapStatus } from '../helper/normalize.js';
 import prisma from '../lib/prisma.js';
 
 export const getAllCompetitions = async (query, userId) => {
@@ -192,10 +193,6 @@ export const getCompetitionParticipants = async (competitionId) => {
     id: r.id,
     name: r.user.name,
     school: r.school,
-    status: !r.paymentProof
-      ? 'pending'
-      : r.paymentProof.status === 'VERIFIED'
-        ? 'verified'
-        : 'rejected',
+    status: mapStatus(r.paymentProof),
   }));
 };

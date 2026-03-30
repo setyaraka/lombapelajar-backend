@@ -1,3 +1,4 @@
+import { mapStatus } from '../helper/normalize.js';
 import prisma from '../lib/prisma.js';
 
 export const getAllRegistrations = async (query) => {
@@ -56,7 +57,7 @@ export const getAllRegistrations = async (query) => {
     competition: r.competition.title,
     proofUrl: r.paymentProof?.fileKey ?? null,
     uploadedAt: r.paymentProof?.uploadedAt ?? null,
-    status: r.paymentProof?.status,
+    status: mapStatus(r.paymentProof),
   }));
 
   return {

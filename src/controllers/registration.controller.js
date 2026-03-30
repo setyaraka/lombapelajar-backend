@@ -4,14 +4,17 @@ export const registerCompetition = async (req, res) => {
   try {
     const { phone, school, nisn, address, fileUrl, fileKey } = req.body;
 
-    const data = await service.createRegistrationWithProof(
-      req.user.id,
-      req.params.competitionId,
-      { phone, school, nisn, address, fileUrl, fileKey }
-    );
+    const data = await service.createRegistrationWithProof(req.user.id, req.params.competitionId, {
+      phone,
+      school,
+      nisn,
+      address,
+      fileUrl,
+      fileKey,
+    });
 
     res.json(data);
-  } catch (err) { 
+  } catch (err) {
     res.status(400).json({ message: err.message });
   }
 };

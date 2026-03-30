@@ -22,7 +22,7 @@ export const getUploadUrl = async (req, res) => {
   try {
     const { fileType } = req.body;
 
-    const ext = fileType.split("/")[1];
+    const ext = fileType.split('/')[1];
 
     const fileKey = `payment-proofs/${crypto.randomUUID()}.${ext}`;
 
@@ -42,4 +42,4 @@ export const getUploadUrl = async (req, res) => {
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
-} 
+};
