@@ -13,6 +13,7 @@ model Competition {
   title        String
   description  String
   poster       String?
+  juknis       String?
   level        String
   category     String
   deadline     DateTime

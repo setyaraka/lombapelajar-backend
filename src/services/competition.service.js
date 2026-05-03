@@ -196,3 +196,12 @@ export const getCompetitionParticipants = async (competitionId) => {
     status: mapStatus(r.paymentProof),
   }));
 };
+
+export const uploadJuknisToCompetition = async (competitionId, fileKey) => {
+  return await prisma.competition.update({
+    where: { id: competitionId },
+    data: {
+      juknis: fileKey,
+    },
+  });
+};

@@ -11,6 +11,13 @@ router.get('/:id', ctrl.detail);
 router.get('/:id/participants', ctrl.participants);
 
 router.post('/', authMiddleware, adminOnly, upload.single('poster'), ctrl.create);
+router.post(
+  '/upload-juknis',
+  authMiddleware,
+  adminOnly,
+  upload.single('file'),
+  ctrl.uploadJuknisController,
+);
 router.put('/:id', authMiddleware, adminOnly, upload.single('poster'), ctrl.update);
 router.delete('/:id', authMiddleware, adminOnly, ctrl.remove);
 

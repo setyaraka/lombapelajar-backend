@@ -1,5 +1,5 @@
 import * as service from '../services/competition.service.js';
-import { uploadPoster } from '../services/upload.service.js';
+import { uploadJuknis, uploadPoster } from '../services/upload.service.js';
 
 export const list = async (req, res) => {
   try {
@@ -88,5 +88,28 @@ export const participants = async (req, res) => {
     res.json(data);
   } catch {
     res.status(500).json({ message: 'Failed to get Participant' });
+  }
+};
+
+export const uploadJuknisController = async (req, res) => {
+  try {
+    const file = req.file;
+    const { competitionId } = req.body;
+
+    if (!file) {
+      return res.status(400).json({ message: 'File is required' });
+    }
+
+    const key = await uploadJuknis(file);
+
+    const updated = await service.uploadJuknisToCompetition(competitionId, key);
+
+    res.json({
+      message: 'Juknis uploaded successfully',
+      data: updated,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
   }
 };
