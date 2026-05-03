@@ -39,12 +39,14 @@ model Registration {
   id            String             @id @default(uuid())
   userId        String
   competitionId String
-  phone         String
-  school        String
-  nisn          String
-  address       String
+
+  leaderName    String
+  members       String[]
+  parentName    String
+
   status        RegistrationStatus @default(PENDING)
   createdAt     DateTime           @default(now())
+
   paymentProof  PaymentProof?
   competition   Competition        @relation(fields: [competitionId], references: [id])
   user          User               @relation(fields: [userId], references: [id])

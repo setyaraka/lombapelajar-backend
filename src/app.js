@@ -28,11 +28,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* ================= ROUTES ================= */
-app.use('/auth', authRoutes);
+// app.use('/auth', authRoutes);
 app.use('/competitions', competitionRoutes);
 app.use('/registrations', registrationRoutes);
 app.use('/payments', paymentRoutes);
+// app.use('/admin', adminRoutes);
+
 app.use('/admin', adminRoutes);
+app.use('/auth', authRoutes);
 
 app.get(/^\/files\/(.+)/, proxyFile);
 
