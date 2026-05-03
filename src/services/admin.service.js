@@ -57,6 +57,7 @@ export const getAllRegistrations = async (query) => {
     competition: r.competition.title,
     proofUrl: r.paymentProof?.fileKey ?? null,
     uploadedAt: r.paymentProof?.uploadedAt ?? null,
+    creationFile: r.creationFile ?? null,
     status: mapStatus(r.paymentProof),
   }));
 
@@ -90,9 +91,15 @@ export const updateRegistrationStatus = async ({ id, status }) => {
   const proof = await prisma.paymentProof.findUnique({
     where: { registrationId: id },
   });
+
   if (!proof) throw new Error('Payment proof not found');
 
-  const registrationStatus = status === 'approved' ? 'APPROVED' : 'REJECTED';
+  const statusMap = {
+    VERIFIED: 'APPROVED',
+    REJECTED: 'REJECTED',
+  };
+
+  const registrationStatus = statusMap[status];
 
   await prisma.$transaction([
     prisma.paymentProof.update({

@@ -49,6 +49,9 @@ model Registration {
   createdAt     DateTime           @default(now())
 
   paymentProof  PaymentProof?
+  
+  creationFile     String? 
+
   competition   Competition        @relation(fields: [competitionId], references: [id])
   user          User               @relation(fields: [userId], references: [id])
 }

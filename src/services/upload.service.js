@@ -31,3 +31,18 @@ export const uploadJuknis = async (file) => {
 
   return key;
 };
+
+export const uploadCreationFile = async (file) => {
+  const key = `creation/${crypto.randomUUID()}-${file.originalname}`;
+
+  await r2.send(
+    new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET,
+      Key: key,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    }),
+  );
+
+  return key;
+};

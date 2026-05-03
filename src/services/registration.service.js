@@ -79,3 +79,12 @@ export const createRegistrationWithProof = async (userId, competitionId, data) =
     return registration;
   });
 };
+
+export const saveCreationFile = async (registrationId, fileKey) => {
+  return prisma.registration.update({
+    where: { id: registrationId },
+    data: {
+      creationFile: fileKey,
+    },
+  });
+};
