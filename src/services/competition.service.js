@@ -93,6 +93,10 @@ export const getCompetitionById = async (id, userId) => {
       userId && competition.registrations[0]
         ? mapStatus(competition.registrations[0].paymentProof)
         : null,
+    creationFile:
+      userId && competition.registrations[0]
+        ? competition.registrations[0].creationFile
+        : null,
   };
 };
 
