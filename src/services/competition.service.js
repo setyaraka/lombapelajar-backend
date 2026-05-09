@@ -12,7 +12,7 @@ export const getAllCompetitions = async (query, userId) => {
   const where = {
     AND: [
       search ? { title: { contains: search, mode: 'insensitive' } } : {},
-      level ? { level: { equals: level, mode: 'insensitive' } } : {},
+      level ? { level: { has: level } } : {},
       category ? { category: { equals: category, mode: 'insensitive' } } : {},
       joined
         ? {

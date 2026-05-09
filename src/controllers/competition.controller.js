@@ -32,6 +32,7 @@ export const create = async (req, res) => {
       poster: posterKey,
       requirements: JSON.parse(req.body.requirements),
       timeline: JSON.parse(req.body.timeline),
+      level: JSON.parse(req.body.level),
     };
 
     const data = await service.createCompetition(payload);
@@ -56,6 +57,7 @@ export const update = async (req, res) => {
       poster: posterKey,
       requirements: JSON.parse(req.body.requirements),
       timeline: JSON.parse(req.body.timeline),
+      level: JSON.parse(req.body.level),
     };
 
     const data = await service.updateCompetition(req.params.id, payload);

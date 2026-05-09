@@ -14,7 +14,7 @@ model Competition {
   description  String
   poster       String?
   juknis       String?
-  level        String
+  level        String[]
   category     String
   deadline     DateTime
   price        Int
