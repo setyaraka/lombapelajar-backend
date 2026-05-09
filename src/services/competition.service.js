@@ -69,14 +69,27 @@ export const getAllCompetitions = async (query, userId) => {
   };
 };
 
-export const getCompetitionById = async (id) => {
-  return prisma.competition.findUnique({
+export const getCompetitionById = async (id, userId) => {
+  const competition = await prisma.competition.findUnique({
     where: { id },
     include: {
       requirements: true,
       timelines: true,
+      registrations: userId
+        ? {
+            where: { userId },
+            select: { id: true },
+          }
+        : false,
     },
   });
+
+  if (!competition) return null;
+
+  return {
+    ...competition,
+    submitted: userId ? competition.registrations.length > 0 : false,
+  };
 };
 
 export const createCompetition = async (data) => {

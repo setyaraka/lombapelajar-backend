@@ -13,7 +13,8 @@ export const list = async (req, res) => {
 };
 
 export const detail = async (req, res) => {
-  const data = await service.getCompetitionById(req.params.id);
+  const userId = req.user?.id;
+  const data = await service.getCompetitionById(req.params.id, userId);
   if (!data) return res.status(404).json({ message: 'Not found' });
   res.json(data);
 };
