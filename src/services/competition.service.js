@@ -38,7 +38,7 @@ export const getAllCompetitions = async (query, userId) => {
         registrations: userId
           ? {
               where: { userId },
-              select: { id: true },
+              select: { id: true, creationFile: true },
             }
           : false,
       },
@@ -58,6 +58,7 @@ export const getAllCompetitions = async (query, userId) => {
     poster: c.poster,
 
     submitted: userId ? c.registrations.length > 0 : false,
+    creationFile: userId && c.registrations[0] ? c.registrations[0].creationFile : null,
   }));
 
   return {
