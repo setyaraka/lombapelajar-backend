@@ -10,7 +10,7 @@ export const getAllRegistrations = async (query) => {
         ? {
             OR: [
               { user: { name: { contains: search, mode: 'insensitive' } } },
-              { school: { contains: search, mode: 'insensitive' } },
+              { user: { school: { contains: search, mode: 'insensitive' } } },
               { competition: { title: { contains: search, mode: 'insensitive' } } },
             ],
           }
@@ -53,7 +53,7 @@ export const getAllRegistrations = async (query) => {
   const participants = data.map((r) => ({
     id: r.id,
     name: r.user.name,
-    school: r.school,
+    school: r.user.school,
     competition: r.competition.title,
     proofUrl: r.paymentProof?.fileKey ?? null,
     uploadedAt: r.paymentProof?.uploadedAt ?? null,
