@@ -1,3 +1,4 @@
+import { mapStatus } from '../helper/normalize.js';
 import prisma from '../lib/prisma.js';
 
 export const getAllCompetitions = async (query, userId) => {
@@ -11,8 +12,8 @@ export const getAllCompetitions = async (query, userId) => {
   const where = {
     AND: [
       search ? { title: { contains: search, mode: 'insensitive' } } : {},
-      level ? { level } : {},
-      category ? { category } : {},
+      level ? { level: { has: level } } : {},
+      category ? { category: { equals: category, mode: 'insensitive' } } : {},
       joined
         ? {
             registrations: {
@@ -37,7 +38,7 @@ export const getAllCompetitions = async (query, userId) => {
         registrations: userId
           ? {
               where: { userId },
-              select: { id: true },
+              select: { id: true, creationFile: true },
             }
           : false,
       },
@@ -57,6 +58,7 @@ export const getAllCompetitions = async (query, userId) => {
     poster: c.poster,
 
     submitted: userId ? c.registrations.length > 0 : false,
+    creationFile: userId && c.registrations[0] ? c.registrations[0].creationFile : null,
   }));
 
   return {
@@ -68,14 +70,35 @@ export const getAllCompetitions = async (query, userId) => {
   };
 };
 
-export const getCompetitionById = async (id) => {
-  return prisma.competition.findUnique({
+export const getCompetitionById = async (id, userId) => {
+  const competition = await prisma.competition.findUnique({
     where: { id },
     include: {
       requirements: true,
       timelines: true,
+      registrations: userId
+        ? {
+            where: { userId },
+            include: { paymentProof: true },
+          }
+        : false,
     },
   });
+
+  if (!competition) return null;
+
+  return {
+    ...competition,
+    submitted: userId ? competition.registrations.length > 0 : false,
+    registrationStatus:
+      userId && competition.registrations[0]
+        ? mapStatus(competition.registrations[0].paymentProof)
+        : null,
+    creationFile:
+      userId && competition.registrations[0]
+        ? competition.registrations[0].creationFile
+        : null,
+  };
 };
 
 export const createCompetition = async (data) => {
@@ -95,6 +118,7 @@ export const createCompetition = async (data) => {
       bankName: competition.bankName || null,
       bankNumber: competition.bankNumber || null,
       bankHolder: competition.bankHolder || null,
+      qris: competition.qris || null,
 
       requirements: {
         create: requirements.map((text) => ({ text })),
@@ -135,6 +159,7 @@ export const updateCompetition = async (id, body) => {
         bankName: body.bankName || null,
         bankNumber: body.bankNumber || null,
         bankHolder: body.bankHolder || null,
+        qris: body.qris || null,
 
         requirements: {
           create: body.requirements.map((text) => ({ text })),
@@ -191,11 +216,16 @@ export const getCompetitionParticipants = async (competitionId) => {
   return registrations.map((r) => ({
     id: r.id,
     name: r.user.name,
-    school: r.school,
-    status: !r.paymentProof
-      ? 'pending'
-      : r.paymentProof.status === 'VERIFIED'
-        ? 'verified'
-        : 'rejected',
+    school: r.user.school,
+    status: mapStatus(r.paymentProof),
   }));
+};
+
+export const uploadJuknisToCompetition = async (competitionId, fileKey) => {
+  return await prisma.competition.update({
+    where: { id: competitionId },
+    data: {
+      juknis: fileKey,
+    },
+  });
 };

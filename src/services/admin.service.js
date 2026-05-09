@@ -1,3 +1,4 @@
+import { mapStatus } from '../helper/normalize.js';
 import prisma from '../lib/prisma.js';
 
 export const getAllRegistrations = async (query) => {
@@ -9,7 +10,7 @@ export const getAllRegistrations = async (query) => {
         ? {
             OR: [
               { user: { name: { contains: search, mode: 'insensitive' } } },
-              { school: { contains: search, mode: 'insensitive' } },
+              { user: { school: { contains: search, mode: 'insensitive' } } },
               { competition: { title: { contains: search, mode: 'insensitive' } } },
             ],
           }
@@ -52,11 +53,12 @@ export const getAllRegistrations = async (query) => {
   const participants = data.map((r) => ({
     id: r.id,
     name: r.user.name,
-    school: r.school,
+    school: r.user.school,
     competition: r.competition.title,
     proofUrl: r.paymentProof?.fileKey ?? null,
     uploadedAt: r.paymentProof?.uploadedAt ?? null,
-    status: r.paymentProof?.status,
+    creationFile: r.creationFile ?? null,
+    status: mapStatus(r.paymentProof),
   }));
 
   return {
@@ -89,9 +91,15 @@ export const updateRegistrationStatus = async ({ id, status }) => {
   const proof = await prisma.paymentProof.findUnique({
     where: { registrationId: id },
   });
+
   if (!proof) throw new Error('Payment proof not found');
 
-  const registrationStatus = status === 'approved' ? 'APPROVED' : 'REJECTED';
+  const statusMap = {
+    VERIFIED: 'APPROVED',
+    REJECTED: 'REJECTED',
+  };
+
+  const registrationStatus = statusMap[status];
 
   await prisma.$transaction([
     prisma.paymentProof.update({

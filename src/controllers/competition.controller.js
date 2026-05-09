@@ -1,5 +1,5 @@
 import * as service from '../services/competition.service.js';
-import { uploadPoster } from '../services/upload.service.js';
+import { uploadJuknis, uploadPoster, uploadQris } from '../services/upload.service.js';
 
 export const list = async (req, res) => {
   try {
@@ -13,7 +13,8 @@ export const list = async (req, res) => {
 };
 
 export const detail = async (req, res) => {
-  const data = await service.getCompetitionById(req.params.id);
+  const userId = req.user?.id;
+  const data = await service.getCompetitionById(req.params.id, userId);
   if (!data) return res.status(404).json({ message: 'Not found' });
   res.json(data);
 };
@@ -21,16 +22,24 @@ export const detail = async (req, res) => {
 export const create = async (req, res) => {
   try {
     let posterKey = null;
+    let qrisKey = null;
 
-    if (req.file) {
-      posterKey = await uploadPoster(req.file);
+    if (req.files) {
+      if (req.files.poster?.[0]) {
+        posterKey = await uploadPoster(req.files.poster[0]);
+      }
+      if (req.files.qris?.[0]) {
+        qrisKey = await uploadQris(req.files.qris[0]);
+      }
     }
 
     const payload = {
       ...req.body,
-      poster: posterKey,
-      requirements: JSON.parse(req.body.requirements),
-      timeline: JSON.parse(req.body.timeline),
+      poster: posterKey || req.body.poster,
+      qris: qrisKey || req.body.qris,
+      requirements: JSON.parse(req.body.requirements || '[]'),
+      timeline: JSON.parse(req.body.timeline || '[]'),
+      level: JSON.parse(req.body.level || '[]'),
     };
 
     const data = await service.createCompetition(payload);
@@ -45,16 +54,24 @@ export const create = async (req, res) => {
 export const update = async (req, res) => {
   try {
     let posterKey = req.body.poster;
+    let qrisKey = req.body.qris;
 
-    if (req.file) {
-      posterKey = await uploadPoster(req.file);
+    if (req.files) {
+      if (req.files.poster?.[0]) {
+        posterKey = await uploadPoster(req.files.poster[0]);
+      }
+      if (req.files.qris?.[0]) {
+        qrisKey = await uploadQris(req.files.qris[0]);
+      }
     }
 
     const payload = {
       ...req.body,
       poster: posterKey,
-      requirements: JSON.parse(req.body.requirements),
-      timeline: JSON.parse(req.body.timeline),
+      qris: qrisKey,
+      requirements: JSON.parse(req.body.requirements || '[]'),
+      timeline: JSON.parse(req.body.timeline || '[]'),
+      level: JSON.parse(req.body.level || '[]'),
     };
 
     const data = await service.updateCompetition(req.params.id, payload);
@@ -88,5 +105,28 @@ export const participants = async (req, res) => {
     res.json(data);
   } catch {
     res.status(500).json({ message: 'Failed to get Participant' });
+  }
+};
+
+export const uploadJuknisController = async (req, res) => {
+  try {
+    const file = req.file;
+    const { competitionId } = req.body;
+
+    if (!file) {
+      return res.status(400).json({ message: 'File is required' });
+    }
+
+    const key = await uploadJuknis(file);
+
+    const updated = await service.uploadJuknisToCompetition(competitionId, key);
+
+    res.json({
+      message: 'Juknis uploaded successfully',
+      data: updated,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
   }
 };

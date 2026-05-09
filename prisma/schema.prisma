@@ -13,15 +13,17 @@ model Competition {
   title        String
   description  String
   poster       String?
-  level        String
+  juknis       String?
+  level        String[]
   category     String
   deadline     DateTime
   price        Int
   createdAt    DateTime       @default(now())
   bankHolder   String?
-  bankName    String?
-  bankNumber  String?
-  requirements  CompetitionRequirement[]
+  bankName     String?
+  bankNumber   String?
+  qris         String?
+  requirements CompetitionRequirement[]
   timelines     CompetitionTimeline[]
   registrations Registration[]
 }
@@ -39,13 +41,18 @@ model Registration {
   id            String             @id @default(uuid())
   userId        String
   competitionId String
-  phone         String
-  school        String
-  nisn          String
-  address       String
+
+  leaderName    String
+  members       String[]
+  parentName    String
+
   status        RegistrationStatus @default(PENDING)
   createdAt     DateTime           @default(now())
+
   paymentProof  PaymentProof?
+  
+  creationFile     String? 
+
   competition   Competition        @relation(fields: [competitionId], references: [id])
   user          User               @relation(fields: [userId], references: [id])
 }
