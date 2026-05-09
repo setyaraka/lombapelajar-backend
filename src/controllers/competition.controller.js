@@ -1,5 +1,5 @@
 import * as service from '../services/competition.service.js';
-import { uploadJuknis, uploadPoster } from '../services/upload.service.js';
+import { uploadJuknis, uploadPoster, uploadQris } from '../services/upload.service.js';
 
 export const list = async (req, res) => {
   try {
@@ -22,17 +22,24 @@ export const detail = async (req, res) => {
 export const create = async (req, res) => {
   try {
     let posterKey = null;
+    let qrisKey = null;
 
-    if (req.file) {
-      posterKey = await uploadPoster(req.file);
+    if (req.files) {
+      if (req.files.poster?.[0]) {
+        posterKey = await uploadPoster(req.files.poster[0]);
+      }
+      if (req.files.qris?.[0]) {
+        qrisKey = await uploadQris(req.files.qris[0]);
+      }
     }
 
     const payload = {
       ...req.body,
-      poster: posterKey,
-      requirements: JSON.parse(req.body.requirements),
-      timeline: JSON.parse(req.body.timeline),
-      level: JSON.parse(req.body.level),
+      poster: posterKey || req.body.poster,
+      qris: qrisKey || req.body.qris,
+      requirements: JSON.parse(req.body.requirements || '[]'),
+      timeline: JSON.parse(req.body.timeline || '[]'),
+      level: JSON.parse(req.body.level || '[]'),
     };
 
     const data = await service.createCompetition(payload);
@@ -47,17 +54,24 @@ export const create = async (req, res) => {
 export const update = async (req, res) => {
   try {
     let posterKey = req.body.poster;
+    let qrisKey = req.body.qris;
 
-    if (req.file) {
-      posterKey = await uploadPoster(req.file);
+    if (req.files) {
+      if (req.files.poster?.[0]) {
+        posterKey = await uploadPoster(req.files.poster[0]);
+      }
+      if (req.files.qris?.[0]) {
+        qrisKey = await uploadQris(req.files.qris[0]);
+      }
     }
 
     const payload = {
       ...req.body,
       poster: posterKey,
-      requirements: JSON.parse(req.body.requirements),
-      timeline: JSON.parse(req.body.timeline),
-      level: JSON.parse(req.body.level),
+      qris: qrisKey,
+      requirements: JSON.parse(req.body.requirements || '[]'),
+      timeline: JSON.parse(req.body.timeline || '[]'),
+      level: JSON.parse(req.body.level || '[]'),
     };
 
     const data = await service.updateCompetition(req.params.id, payload);

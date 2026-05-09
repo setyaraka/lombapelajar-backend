@@ -10,7 +10,16 @@ router.get('/', optionalAuthMiddleware, ctrl.list);
 router.get('/:id', optionalAuthMiddleware, ctrl.detail);
 router.get('/:id/participants', ctrl.participants);
 
-router.post('/', authMiddleware, adminOnly, upload.single('poster'), ctrl.create);
+router.post(
+  '/',
+  authMiddleware,
+  adminOnly,
+  upload.fields([
+    { name: 'poster', maxCount: 1 },
+    { name: 'qris', maxCount: 1 },
+  ]),
+  ctrl.create,
+);
 router.post(
   '/upload-juknis',
   authMiddleware,
@@ -18,7 +27,16 @@ router.post(
   upload.single('file'),
   ctrl.uploadJuknisController,
 );
-router.put('/:id', authMiddleware, adminOnly, upload.single('poster'), ctrl.update);
+router.put(
+  '/:id',
+  authMiddleware,
+  adminOnly,
+  upload.fields([
+    { name: 'poster', maxCount: 1 },
+    { name: 'qris', maxCount: 1 },
+  ]),
+  ctrl.update,
+);
 router.delete('/:id', authMiddleware, adminOnly, ctrl.remove);
 
 export default router;

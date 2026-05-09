@@ -118,6 +118,7 @@ export const createCompetition = async (data) => {
       bankName: competition.bankName || null,
       bankNumber: competition.bankNumber || null,
       bankHolder: competition.bankHolder || null,
+      qris: competition.qris || null,
 
       requirements: {
         create: requirements.map((text) => ({ text })),
@@ -158,6 +159,7 @@ export const updateCompetition = async (id, body) => {
         bankName: body.bankName || null,
         bankNumber: body.bankNumber || null,
         bankHolder: body.bankHolder || null,
+        qris: body.qris || null,
 
         requirements: {
           create: body.requirements.map((text) => ({ text })),
