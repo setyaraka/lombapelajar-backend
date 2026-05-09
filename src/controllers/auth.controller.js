@@ -17,3 +17,12 @@ export const login = async (req, res) => {
     res.status(401).json({ message: err.message });
   }
 };
+
+export const getMe = async (req, res) => {
+  try {
+    const user = await authService.getUserProfile(req.user.id);
+    res.json({ user });
+  } catch (err) {
+    res.status(404).json({ message: err.message });
+  }
+};
