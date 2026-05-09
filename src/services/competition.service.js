@@ -12,8 +12,8 @@ export const getAllCompetitions = async (query, userId) => {
   const where = {
     AND: [
       search ? { title: { contains: search, mode: 'insensitive' } } : {},
-      level ? { level } : {},
-      category ? { category } : {},
+      level ? { level: { equals: level, mode: 'insensitive' } } : {},
+      category ? { category: { equals: category, mode: 'insensitive' } } : {},
       joined
         ? {
             registrations: {
