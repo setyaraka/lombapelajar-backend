@@ -78,7 +78,7 @@ export const getCompetitionById = async (id, userId) => {
       registrations: userId
         ? {
             where: { userId },
-            select: { id: true },
+            include: { paymentProof: true },
           }
         : false,
     },
@@ -89,6 +89,10 @@ export const getCompetitionById = async (id, userId) => {
   return {
     ...competition,
     submitted: userId ? competition.registrations.length > 0 : false,
+    registrationStatus:
+      userId && competition.registrations[0]
+        ? mapStatus(competition.registrations[0].paymentProof)
+        : null,
   };
 };
 
