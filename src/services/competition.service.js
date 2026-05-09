@@ -216,7 +216,7 @@ export const getCompetitionParticipants = async (competitionId) => {
   return registrations.map((r) => ({
     id: r.id,
     name: r.user.name,
-    school: r.school,
+    school: r.user.school,
     status: mapStatus(r.paymentProof),
   }));
 };
