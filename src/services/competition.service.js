@@ -56,6 +56,7 @@ export const getAllCompetitions = async (query, userId) => {
     participants: c._count.registrations,
     status: c.deadline < now ? 'closed' : 'open',
     poster: c.poster,
+    whatsapp: c.whatsapp,
 
     submitted: userId ? c.registrations.length > 0 : false,
     creationFile: userId && c.registrations[0] ? c.registrations[0].creationFile : null,
@@ -119,6 +120,7 @@ export const createCompetition = async (data) => {
       bankNumber: competition.bankNumber || null,
       bankHolder: competition.bankHolder || null,
       qris: competition.qris || null,
+      whatsapp: competition.whatsapp || null,
 
       requirements: {
         create: requirements.map((text) => ({ text })),
@@ -160,6 +162,7 @@ export const updateCompetition = async (id, body) => {
         bankNumber: body.bankNumber || null,
         bankHolder: body.bankHolder || null,
         qris: body.qris || null,
+        whatsapp: body.whatsapp || null,
 
         requirements: {
           create: body.requirements.map((text) => ({ text })),
