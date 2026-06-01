@@ -232,3 +232,14 @@ export const uploadJuknisToCompetition = async (competitionId, fileKey) => {
     },
   });
 };
+
+export const updateAnnouncementInCompetition = async (competitionId, { announcementPoster, announcementLink }) => {
+  const data = {};
+  if (announcementPoster !== undefined) data.announcementPoster = announcementPoster;
+  if (announcementLink !== undefined) data.announcementLink = announcementLink;
+
+  return await prisma.competition.update({
+    where: { id: competitionId },
+    data,
+  });
+};

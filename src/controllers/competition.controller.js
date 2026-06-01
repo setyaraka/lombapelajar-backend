@@ -130,3 +130,34 @@ export const uploadJuknisController = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const updateAnnouncement = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let announcementPoster = undefined;
+    let announcementLink = undefined;
+
+    if (req.file) {
+      announcementPoster = await uploadPoster(req.file);
+    } else if (req.body.announcementPoster === 'null' || req.body.announcementPoster === '') {
+      announcementPoster = null;
+    }
+
+    if (req.body.announcementLink !== undefined) {
+      announcementLink = req.body.announcementLink === '' ? null : req.body.announcementLink;
+    }
+
+    const data = await service.updateAnnouncementInCompetition(id, {
+      announcementPoster,
+      announcementLink,
+    });
+
+    res.json({
+      message: 'Announcement updated successfully',
+      data,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
+  }
+};
