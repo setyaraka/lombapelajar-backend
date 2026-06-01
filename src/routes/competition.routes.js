@@ -28,6 +28,13 @@ router.post(
   ctrl.uploadJuknisController,
 );
 router.put(
+  '/:id/announcement',
+  authMiddleware,
+  adminOnly,
+  upload.single('file'),
+  ctrl.updateAnnouncement
+);
+router.put(
   '/:id',
   authMiddleware,
   adminOnly,

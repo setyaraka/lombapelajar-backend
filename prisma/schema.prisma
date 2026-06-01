@@ -24,6 +24,8 @@ model Competition {
   bankNumber   String?
   qris         String?
   whatsapp     String?
+  announcementPoster String?
+  announcementLink   String?
   requirements CompetitionRequirement[]
   timelines     CompetitionTimeline[]
   registrations Registration[]
