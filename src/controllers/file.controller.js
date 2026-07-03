@@ -16,7 +16,6 @@ export const proxyFile = async (req, res) => {
 
     response.Body.pipe(res);
   } catch (err) {
-    console.error(err);
     res.status(404).send('File not found');
   }
 };
