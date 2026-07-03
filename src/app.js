@@ -6,6 +6,7 @@ import competitionRoutes from './routes/competition.routes.js';
 import registrationRoutes from './routes/registration.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import examRoutes from './routes/exam.routes.js';
 import { proxyFile } from './controllers/file.controller.js';
 
 dotenv.config();
@@ -32,6 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/competitions', competitionRoutes);
 app.use('/registrations', registrationRoutes);
 app.use('/payments', paymentRoutes);
+app.use('/', examRoutes);
 // app.use('/admin', adminRoutes);
 
 app.use('/admin', adminRoutes);

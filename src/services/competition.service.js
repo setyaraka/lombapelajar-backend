@@ -1,6 +1,21 @@
 import { mapStatus } from '../helper/normalize.js';
 import prisma from '../lib/prisma.js';
 
+const getExamStatus = (exam, attempt) => {
+  if (!exam) return null;
+
+  const now = new Date();
+  if (attempt?.status === 'FINISHED')
+    return { examId: exam.id, status: 'FINISHED', label: 'Sudah selesai' };
+  if (exam.startAt > now)
+    return { examId: exam.id, status: 'NOT_STARTED', label: 'Belum memenuhi jadwal' };
+  if (exam.endAt < now)
+    return { examId: exam.id, status: 'SCHEDULE_ENDED', label: 'Jadwal berakhir' };
+  if (attempt?.status === 'IN_PROGRESS')
+    return { examId: exam.id, status: 'IN_PROGRESS', label: 'Sedang berlangsung' };
+  return { examId: exam.id, status: 'AVAILABLE', label: 'Belum dimulai' };
+};
+
 export const getAllCompetitions = async (query, userId) => {
   const page = Number(query.page) || 1;
   const perPage = Number(query.perPage) || 10;
@@ -41,6 +56,19 @@ export const getAllCompetitions = async (query, userId) => {
               select: { id: true, creationFile: true },
             }
           : false,
+        exams: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: {
+            attempts: userId
+              ? {
+                  where: { userId },
+                  orderBy: { startedAt: 'desc' },
+                  take: 1,
+                }
+              : false,
+          },
+        },
       },
     }),
   ]);
@@ -60,6 +88,7 @@ export const getAllCompetitions = async (query, userId) => {
 
     submitted: userId ? c.registrations.length > 0 : false,
     creationFile: userId && c.registrations[0] ? c.registrations[0].creationFile : null,
+    examStatus: getExamStatus(c.exams[0], c.exams[0]?.attempts?.[0]),
   }));
 
   return {
@@ -83,6 +112,19 @@ export const getCompetitionById = async (id, userId) => {
             include: { paymentProof: true },
           }
         : false,
+      exams: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        include: {
+          attempts: userId
+            ? {
+                where: { userId },
+                orderBy: { startedAt: 'desc' },
+                take: 1,
+              }
+            : false,
+        },
+      },
     },
   });
 
@@ -96,9 +138,8 @@ export const getCompetitionById = async (id, userId) => {
         ? mapStatus(competition.registrations[0].paymentProof)
         : null,
     creationFile:
-      userId && competition.registrations[0]
-        ? competition.registrations[0].creationFile
-        : null,
+      userId && competition.registrations[0] ? competition.registrations[0].creationFile : null,
+    examStatus: getExamStatus(competition.exams[0], competition.exams[0]?.attempts?.[0]),
   };
 };
 
@@ -233,7 +274,10 @@ export const uploadJuknisToCompetition = async (competitionId, fileKey) => {
   });
 };
 
-export const updateAnnouncementInCompetition = async (competitionId, { announcementPoster, announcementLink }) => {
+export const updateAnnouncementInCompetition = async (
+  competitionId,
+  { announcementPoster, announcementLink },
+) => {
   const data = {};
   if (announcementPoster !== undefined) data.announcementPoster = announcementPoster;
   if (announcementLink !== undefined) data.announcementLink = announcementLink;
