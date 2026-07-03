@@ -174,25 +174,25 @@ async function main() {
       ],
     },
     {
-      text: 'Manakah yang merupakan sistem operasi bertipe open source? (Pilih semua yang benar)',
-      type: 'MULTIPLE_CHOICE',
-      points: 10,
+      text: 'Manakah yang merupakan sistem operasi open source yang paling populer untuk smartphone?',
+      type: 'SINGLE_CHOICE',
+      points: 5,
       position: 9,
       options: [
-        { text: 'Linux', isCorrect: true, position: 1 },
+        { text: 'Linux', isCorrect: false, position: 1 },
         { text: 'Android', isCorrect: true, position: 2 },
         { text: 'Windows', isCorrect: false, position: 3 },
-        { text: 'macOS', isCorrect: false, position: 4 },
+        { text: 'iOS', isCorrect: false, position: 4 },
       ],
     },
     {
-      text: 'Manakah protokol berikut yang berjalan di Transport Layer? (Pilih semua yang benar)',
-      type: 'MULTIPLE_CHOICE',
-      points: 10,
+      text: 'Protokol Transport Layer manakah yang menjamin pengiriman paket data yang andal (reliable)?',
+      type: 'SINGLE_CHOICE',
+      points: 5,
       position: 10,
       options: [
         { text: 'TCP', isCorrect: true, position: 1 },
-        { text: 'UDP', isCorrect: true, position: 2 },
+        { text: 'UDP', isCorrect: false, position: 2 },
         { text: 'IP', isCorrect: false, position: 3 },
         { text: 'HTTP', isCorrect: false, position: 4 },
       ],
@@ -292,6 +292,29 @@ async function main() {
 
   if (registrations.length > 0) {
     console.log(`Approved ${registrations.length} registrations to allow immediate exam access.`);
+  }
+
+  // 5. Reset attempts for user budi@mail.com so they can take the exam again
+  const userBudi = await prisma.user.findUnique({ where: { email: 'budi@mail.com' } });
+  if (userBudi) {
+    // Delete all answers, logs and attempts
+    const attempts = await prisma.examAttempt.findMany({
+      where: { userId: userBudi.id, examId: exam.id },
+      select: { id: true },
+    });
+    
+    const attemptIds = attempts.map(a => a.id);
+    
+    await prisma.examAnswer.deleteMany({
+      where: { attemptId: { in: attemptIds } },
+    });
+    await prisma.examActivityLog.deleteMany({
+      where: { attemptId: { in: attemptIds } },
+    });
+    await prisma.examAttempt.deleteMany({
+      where: { userId: userBudi.id, examId: exam.id },
+    });
+    console.log("Reset Budi's attempts, answers, and logs for this exam.");
   }
 
   console.log('Seeding complete! Ready for manual testing.');
