@@ -46,6 +46,7 @@ async function main() {
         endAt: twoHoursLater,
         announcementAt: tomorrow,
         resultPublished: false,
+        durationMinutes: 120, // default 2 jam
       },
     });
     console.log(`Updated exam: ${exam.title} schedule to be active now.`);
@@ -57,7 +58,7 @@ async function main() {
         description: 'Ujian seleksi tahap penyisihan online.',
         startAt: tenMinutesAgo,
         endAt: twoHoursLater,
-        durationMinutes: 15, // 15 menit agar mudah diuji
+        durationMinutes: 120, // default 2 jam
         maxAttempts: 2,
         randomizeQuestions: true,
         randomizeOptions: true,
@@ -297,6 +298,49 @@ async function main() {
   // 5. Reset attempts for user budi@mail.com so they can take the exam again
   const userBudi = await prisma.user.findUnique({ where: { email: 'budi@mail.com' } });
   if (userBudi) {
+    // Ensure Budi is registered and approved for the competition
+    let budiReg = await prisma.registration.findFirst({
+      where: { userId: userBudi.id, competitionId: competition.id },
+    });
+    if (!budiReg) {
+      budiReg = await prisma.registration.create({
+        data: {
+          userId: userBudi.id,
+          competitionId: competition.id,
+          leaderName: userBudi.name,
+          members: [],
+          parentName: 'Orang Tua Budi',
+          status: 'APPROVED',
+        },
+      });
+      console.log("Created approved registration for Budi.");
+    } else if (budiReg.status !== 'APPROVED') {
+      await prisma.registration.update({
+        where: { id: budiReg.id },
+        data: { status: 'APPROVED' },
+      });
+      console.log("Approved existing registration for Budi.");
+    }
+
+    // Ensure payment proof exists and is verified
+    const proof = await prisma.paymentProof.findUnique({
+      where: { registrationId: budiReg.id },
+    });
+    if (!proof) {
+      await prisma.paymentProof.create({
+        data: {
+          registrationId: budiReg.id,
+          status: 'VERIFIED',
+          fileKey: 'dummy-proof-key',
+        },
+      });
+    } else if (proof.status !== 'VERIFIED') {
+      await prisma.paymentProof.update({
+        where: { id: proof.id },
+        data: { status: 'VERIFIED' },
+      });
+    }
+
     // Delete all answers, logs and attempts
     const attempts = await prisma.examAttempt.findMany({
       where: { userId: userBudi.id, examId: exam.id },
