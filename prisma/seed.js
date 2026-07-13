@@ -5,7 +5,27 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding exam data...');
 
-  // 1. Dapatkan atau buat kompetisi
+  // 1. Seed stages
+  const stageNames = [
+    { name: 'Penyisihan', position: 1, description: 'Tahap penyisihan kompetisi' },
+    { name: 'Semifinal', position: 2, description: 'Tahap semifinal kompetisi' },
+    { name: 'Final', position: 3, description: 'Tahap final perebutan juara' },
+    { name: '16 Besar', position: 4, description: 'Tahap gugur 16 besar' },
+    { name: 'Perempat Final', position: 5, description: 'Tahap perempat final' }
+  ];
+
+  const stages = [];
+  for (const s of stageNames) {
+    const stage = await prisma.examStage.upsert({
+      where: { name: s.name },
+      update: { position: s.position, description: s.description },
+      create: s
+    });
+    stages.push(stage);
+  }
+  console.log(`Seeded ${stages.length} exam stages.`);
+
+  // 1.5 Dapatkan atau buat kompetisi
   let competition = await prisma.competition.findFirst();
 
   if (!competition) {
@@ -47,6 +67,7 @@ async function main() {
         announcementAt: tomorrow,
         resultPublished: false,
         durationMinutes: 120, // default 2 jam
+        stageId: stages[0].id,
       },
     });
     console.log(`Updated exam: ${exam.title} schedule to be active now.`);
@@ -54,6 +75,7 @@ async function main() {
     exam = await prisma.exam.create({
       data: {
         competitionId: competition.id,
+        stageId: stages[0].id,
         title: 'Ujian Penyisihan Matematika SMA',
         description: 'Ujian seleksi tahap penyisihan online.',
         startAt: tenMinutesAgo,

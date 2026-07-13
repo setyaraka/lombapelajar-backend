@@ -10,6 +10,8 @@ const shuffle = (items) =>
     .map(({ item }) => item);
 
 const getActiveRegistration = async (tx, userId, competitionId) => {
+  if (!competitionId) return null;
+
   return tx.registration.findFirst({
     where: {
       userId,
@@ -18,6 +20,26 @@ const getActiveRegistration = async (tx, userId, competitionId) => {
     },
     include: { paymentProof: true },
   });
+};
+
+const getActiveAssignment = async (tx, userId, examId) => {
+  const participant = await tx.participant.findUnique({
+    where: { userId },
+  });
+
+  if (!participant || !participant.isActive) return null;
+
+  const assignment = await tx.examAssignment.findUnique({
+    where: {
+      participantId_examId: {
+        participantId: participant.id,
+        examId,
+      },
+    },
+  });
+
+  if (!assignment || assignment.status !== 'ASSIGNED') return null;
+  return { participant, assignment };
 };
 
 const getExam = async (tx, { examId, competitionId }) => {
@@ -153,7 +175,7 @@ const calculateScore = (exam, answers) => {
     return sum;
   }, 0);
 
-  return Math.round((earned / totalPoints) * 10000) / 100;
+  return earned;
 };
 
 export const getExamStatusForCompetition = async (competition, attempt) => {
@@ -188,8 +210,9 @@ export const startAttempt = async (userId, { examId, competitionId }) => {
       throw error;
     }
 
+    const assignmentAccess = await getActiveAssignment(tx, userId, exam.id);
     const registration = await getActiveRegistration(tx, userId, exam.competitionId);
-    if (!registration) {
+    if (!assignmentAccess && !registration) {
       const error = new Error('You are not allowed to take this exam');
       error.status = 403;
       throw error;
@@ -237,6 +260,8 @@ export const startAttempt = async (userId, { examId, competitionId }) => {
     const attempt = await tx.examAttempt.create({
       data: {
         userId,
+        participantId: assignmentAccess?.participant.id,
+        assignmentId: assignmentAccess?.assignment.id,
         examId: exam.id,
         startedAt: now,
         expiredAt,
@@ -311,6 +336,59 @@ export const getCurrentAttempt = async (userId, { attemptId, examId, competition
 
     return buildAttemptPayload(currentAttempt, currentAttempt.exam, now);
   });
+};
+
+export const getNextAssignedExam = async (userId) => {
+  const now = new Date();
+  const participant = await prisma.participant.findUnique({
+    where: { userId },
+  });
+
+  if (!participant || !participant.isActive) return null;
+
+  const assignment = await prisma.examAssignment.findFirst({
+    where: {
+      participantId: participant.id,
+      status: 'ASSIGNED',
+      exam: {
+        isActive: true,
+        status: 'ACTIVE',
+        endAt: { gte: now },
+      },
+    },
+    orderBy: { exam: { startAt: 'asc' } },
+    include: {
+      exam: true,
+      attempts: {
+        where: { userId },
+        orderBy: { startedAt: 'desc' },
+        take: 1,
+      },
+    },
+  });
+
+  if (!assignment) return null;
+
+  const attempt = assignment.attempts[0] || null;
+  const exam = assignment.exam;
+  const status =
+    attempt?.status === FINISHED
+      ? 'FINISHED'
+      : attempt?.status === IN_PROGRESS
+        ? 'IN_PROGRESS'
+        : exam.startAt <= now && exam.endAt >= now
+          ? 'AVAILABLE'
+          : 'UPCOMING';
+
+  return {
+    serverTime: now,
+    assignmentId: assignment.id,
+    participant,
+    exam,
+    attemptId: attempt?.id ?? null,
+    status,
+    countdownTo: status === 'UPCOMING' ? exam.startAt : null,
+  };
 };
 
 export const saveAnswer = async (
@@ -447,7 +525,7 @@ export const logAttemptActivity = async (userId, attemptId, event, metadata) => 
 
   const attempt = await prisma.examAttempt.findFirst({
     where: { id: attemptId, userId },
-    select: { id: true },
+    select: { id: true, participantId: true, examId: true },
   });
   if (!attempt) {
     const error = new Error('Attempt not found');
@@ -455,8 +533,25 @@ export const logAttemptActivity = async (userId, attemptId, event, metadata) => 
     throw error;
   }
 
-  return prisma.examActivityLog.create({
-    data: { userId, attemptId, event, metadata },
+  return prisma.$transaction(async (tx) => {
+    const activity = await tx.examActivityLog.create({
+      data: { userId, attemptId, event, metadata },
+    });
+
+    if (['TAB_SWITCH', 'WINDOW_BLUR'].includes(event)) {
+      await tx.violationLog.create({
+        data: {
+          participantId: attempt.participantId,
+          attemptId,
+          examId: attempt.examId,
+          type: event === 'TAB_SWITCH' ? 'switch_tab' : 'leave_window',
+          severity: 'LOW',
+          metadata,
+        },
+      });
+    }
+
+    return activity;
   });
 };
 

@@ -101,16 +101,42 @@ export const updateRegistrationStatus = async ({ id, status }) => {
 
   const registrationStatus = statusMap[status];
 
-  await prisma.$transaction([
-    prisma.paymentProof.update({
+  const registration = await prisma.registration.findUnique({
+    where: { id },
+    include: { user: true }
+  });
+
+  await prisma.$transaction(async (tx) => {
+    await tx.paymentProof.update({
       where: { id: proof.id },
       data: { status },
-    }),
-    prisma.registration.update({
+    });
+    await tx.registration.update({
       where: { id: proof.registrationId },
       data: { status: registrationStatus },
-    }),
-  ]);
+    });
+
+    if (registrationStatus === 'APPROVED' && registration) {
+      const exist = await tx.participant.findUnique({
+        where: { email: registration.user.email }
+      });
+      if (!exist) {
+        const year = new Date().getFullYear();
+        const rand = Math.floor(1000 + Math.random() * 9000);
+        const participantNumber = `MTS-${year}-${rand}`;
+
+        await tx.participant.create({
+          data: {
+            userId: registration.userId,
+            name: registration.user.name,
+            email: registration.user.email,
+            participantNumber,
+            isActive: true
+          }
+        });
+      }
+    }
+  });
 
   return { message: 'updated' };
 };

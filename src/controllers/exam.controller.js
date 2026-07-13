@@ -24,6 +24,15 @@ export const current = async (req, res) => {
   }
 };
 
+export const nextAssignedExam = async (req, res) => {
+  try {
+    const data = await examService.getNextAssignedExam(req.user.id);
+    res.json(data || { serverTime: new Date(), exam: null, status: 'EMPTY' });
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
 export const answer = async (req, res) => {
   try {
     const data = await examService.saveAnswer(req.user.id, req.params.id, req.body);
