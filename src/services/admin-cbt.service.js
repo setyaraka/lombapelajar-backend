@@ -280,8 +280,14 @@ export const assignParticipants = async (body) => {
       : [];
   const examIds = payload.examIds?.length ? payload.examIds : payload.examId ? [payload.examId] : [];
 
-  if (participantIds.length === 0 || examIds.length === 0) {
-    const error = new Error('Participants and exams are required');
+  if (examIds.length === 0) {
+    const error = new Error('Exams are required');
+    error.status = 400;
+    throw error;
+  }
+
+  if (participantIds.length === 0) {
+    const error = new Error(payload.stageId ? 'Tidak ada peserta aktif pada tahapan ini' : 'Participants are required');
     error.status = 400;
     throw error;
   }
