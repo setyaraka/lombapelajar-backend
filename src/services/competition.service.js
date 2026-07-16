@@ -31,10 +31,10 @@ export const getAllCompetitions = async (query, userId) => {
       category ? { category: { equals: category, mode: 'insensitive' } } : {},
       joined
         ? {
-          registrations: {
-            some: { userId },
-          },
-        }
+            registrations: {
+              some: { userId },
+            },
+          }
         : {},
     ],
   };
@@ -52,9 +52,9 @@ export const getAllCompetitions = async (query, userId) => {
 
         registrations: userId
           ? {
-            where: { userId },
-            select: { id: true, creationFile: true },
-          }
+              where: { userId },
+              select: { id: true, creationFile: true },
+            }
           : false,
         exams: {
           orderBy: { createdAt: 'desc' },
@@ -62,10 +62,10 @@ export const getAllCompetitions = async (query, userId) => {
           include: {
             attempts: userId
               ? {
-                where: { userId },
-                orderBy: { startedAt: 'desc' },
-                take: 1,
-              }
+                  where: { userId },
+                  orderBy: { startedAt: 'desc' },
+                  take: 1,
+                }
               : false,
           },
         },
@@ -108,9 +108,9 @@ export const getCompetitionById = async (id, userId) => {
       timelines: true,
       registrations: userId
         ? {
-          where: { userId },
-          include: { paymentProof: true },
-        }
+            where: { userId },
+            include: { paymentProof: true },
+          }
         : false,
       exams: {
         orderBy: { createdAt: 'desc' },
@@ -118,10 +118,10 @@ export const getCompetitionById = async (id, userId) => {
         include: {
           attempts: userId
             ? {
-              where: { userId },
-              orderBy: { startedAt: 'desc' },
-              take: 1,
-            }
+                where: { userId },
+                orderBy: { startedAt: 'desc' },
+                take: 1,
+              }
             : false,
         },
       },

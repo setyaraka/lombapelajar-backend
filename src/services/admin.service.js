@@ -103,7 +103,7 @@ export const updateRegistrationStatus = async ({ id, status }) => {
 
   const registration = await prisma.registration.findUnique({
     where: { id },
-    include: { user: true }
+    include: { user: true },
   });
 
   await prisma.$transaction(async (tx) => {
@@ -118,7 +118,7 @@ export const updateRegistrationStatus = async ({ id, status }) => {
 
     if (registrationStatus === 'APPROVED' && registration) {
       const exist = await tx.participant.findUnique({
-        where: { email: registration.user.email }
+        where: { email: registration.user.email },
       });
       if (!exist) {
         const year = new Date().getFullYear();
@@ -131,8 +131,8 @@ export const updateRegistrationStatus = async ({ id, status }) => {
             name: registration.user.name,
             email: registration.user.email,
             participantNumber,
-            isActive: true
-          }
+            isActive: true,
+          },
         });
       }
     }

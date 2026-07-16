@@ -38,7 +38,10 @@ const statusFromAssignment = (assignment, now = new Date()) => {
     return 'Waiting';
   }
 
-  if (attempt.status === 'FINISHED') return attempt.finishedAt && attempt.finishedAt > attempt.expiredAt ? 'Auto Submitted' : 'Finished';
+  if (attempt.status === 'FINISHED')
+    return attempt.finishedAt && attempt.finishedAt > attempt.expiredAt
+      ? 'Auto Submitted'
+      : 'Finished';
   if (attempt.status === 'IN_PROGRESS') {
     if (attempt.expiredAt <= now) return 'Auto Submitted';
     const lastAnswer = attempt.answers
@@ -278,7 +281,11 @@ export const assignParticipants = async (body) => {
           })
         ).map((participant) => participant.id)
       : [];
-  const examIds = payload.examIds?.length ? payload.examIds : payload.examId ? [payload.examId] : [];
+  const examIds = payload.examIds?.length
+    ? payload.examIds
+    : payload.examId
+      ? [payload.examId]
+      : [];
 
   if (examIds.length === 0) {
     const error = new Error('Exams are required');
@@ -287,7 +294,9 @@ export const assignParticipants = async (body) => {
   }
 
   if (participantIds.length === 0) {
-    const error = new Error(payload.stageId ? 'Tidak ada peserta aktif pada tahapan ini' : 'Participants are required');
+    const error = new Error(
+      payload.stageId ? 'Tidak ada peserta aktif pada tahapan ini' : 'Participants are required',
+    );
     error.status = 400;
     throw error;
   }
@@ -327,7 +336,9 @@ export const createQuestion = (body) => {
 
 export const updateQuestion = (id, body) => {
   const payload = validate(questionSchema.partial(), body);
-  const points = payload.type ? defaultQuestionPoints(payload.type, payload.points) : payload.points;
+  const points = payload.type
+    ? defaultQuestionPoints(payload.type, payload.points)
+    : payload.points;
 
   return cbtRepository.prisma.$transaction(async (tx) => {
     if (payload.options) {
@@ -344,13 +355,14 @@ export const updateQuestion = (id, body) => {
         ...(payload.options
           ? {
               options: {
-                create: payload.type === 'ESSAY'
-                  ? []
-                  : payload.options.map((option, index) => ({
-                      text: option.text,
-                      isCorrect: option.isCorrect,
-                      position: option.position ?? index,
-                    })),
+                create:
+                  payload.type === 'ESSAY'
+                    ? []
+                    : payload.options.map((option, index) => ({
+                        text: option.text,
+                        isCorrect: option.isCorrect,
+                        position: option.position ?? index,
+                      })),
               },
             }
           : {}),
@@ -420,7 +432,15 @@ export const getResults = async (query) => {
 
 export const exportResultsCsv = async (query) => {
   const result = await getResults({ ...query, page: 1, perPage: 100 });
-  const header = ['Nomor Peserta', 'Nama', 'Ujian', 'Nilai', 'Selesai Pada', 'Pelanggaran', 'Jawaban'];
+  const header = [
+    'Nomor Peserta',
+    'Nama',
+    'Ujian',
+    'Nilai',
+    'Selesai Pada',
+    'Pelanggaran',
+    'Jawaban',
+  ];
   const lines = result.data.map((row) =>
     [
       row.participantNumber,
@@ -443,12 +463,12 @@ export const listRegisteredUsers = async () => {
     where: {
       status: 'APPROVED',
       user: {
-        participantProfile: null
-      }
+        participantProfile: null,
+      },
     },
     include: {
       user: true,
-      competition: true
-    }
+      competition: true,
+    },
   });
 };

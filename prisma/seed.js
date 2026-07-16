@@ -11,7 +11,7 @@ async function main() {
     { name: 'Semifinal', position: 2, description: 'Tahap semifinal kompetisi' },
     { name: 'Final', position: 3, description: 'Tahap final perebutan juara' },
     { name: '16 Besar', position: 4, description: 'Tahap gugur 16 besar' },
-    { name: 'Perempat Final', position: 5, description: 'Tahap perempat final' }
+    { name: 'Perempat Final', position: 5, description: 'Tahap perempat final' },
   ];
 
   const stages = [];
@@ -19,7 +19,7 @@ async function main() {
     const stage = await prisma.examStage.upsert({
       where: { name: s.name },
       update: { position: s.position, description: s.description },
-      create: s
+      create: s,
     });
     stages.push(stage);
   }
@@ -32,7 +32,8 @@ async function main() {
     competition = await prisma.competition.create({
       data: {
         title: 'Olimpiade Matematika Nasional',
-        description: 'Kompetisi matematika tingkat nasional untuk menguji kemampuan logika dan pemecahan masalah.',
+        description:
+          'Kompetisi matematika tingkat nasional untuk menguji kemampuan logika dan pemecahan masalah.',
         category: 'Sains',
         level: ['SMA', 'MA'],
         deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 hari lagi
@@ -335,13 +336,13 @@ async function main() {
           status: 'APPROVED',
         },
       });
-      console.log("Created approved registration for Budi.");
+      console.log('Created approved registration for Budi.');
     } else if (budiReg.status !== 'APPROVED') {
       await prisma.registration.update({
         where: { id: budiReg.id },
         data: { status: 'APPROVED' },
       });
-      console.log("Approved existing registration for Budi.");
+      console.log('Approved existing registration for Budi.');
     }
 
     // Ensure payment proof exists and is verified
@@ -368,9 +369,9 @@ async function main() {
       where: { userId: userBudi.id, examId: exam.id },
       select: { id: true },
     });
-    
-    const attemptIds = attempts.map(a => a.id);
-    
+
+    const attemptIds = attempts.map((a) => a.id);
+
     await prisma.examAnswer.deleteMany({
       where: { attemptId: { in: attemptIds } },
     });

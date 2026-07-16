@@ -52,6 +52,7 @@ export const cbtRepository = {
       orderBy: { startAt: 'desc' },
       include: {
         stage: true,
+        competition: true,
         _count: { select: { assignments: true, questions: true, attempts: true } },
       },
     });
@@ -66,17 +67,18 @@ export const cbtRepository = {
       where: { id },
       include: {
         stage: true,
+        competition: true,
         questions: { include: { options: { orderBy: { position: 'asc' } } } },
       },
     });
   },
 
   createExam(data) {
-    return prisma.exam.create({ data, include: { stage: true } });
+    return prisma.exam.create({ data, include: { stage: true, competition: true } });
   },
 
   updateExam(id, data) {
-    return prisma.exam.update({ where: { id }, data, include: { stage: true } });
+    return prisma.exam.update({ where: { id }, data, include: { stage: true, competition: true } });
   },
 
   deleteExam(id) {
