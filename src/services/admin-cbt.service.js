@@ -59,8 +59,36 @@ const csvEscape = (value) => {
   return `"${text.replace(/"/g, '""')}"`;
 };
 
-export const getDashboard = async () => {
+export const getDashboard = async (query = {}) => {
   const now = new Date();
+  const page = Number(query.page) || 1;
+  const perPage = Number(query.perPage) || 5;
+  const search = query.search || '';
+  const competitionId = query.competitionId || '';
+  const date = query.date || '';
+
+  const where = {
+    AND: [
+      search
+        ? {
+            OR: [
+              { title: { contains: search, mode: 'insensitive' } },
+              { competition: { title: { contains: search, mode: 'insensitive' } } },
+            ],
+          }
+        : {},
+      competitionId ? { competitionId } : {},
+      date
+        ? {
+            startAt: {
+              gte: new Date(`${date}T00:00:00.000Z`),
+              lte: new Date(`${date}T23:59:59.999Z`),
+            },
+          }
+        : {},
+    ],
+  };
+
   const [
     totalParticipants,
     totalExams,
@@ -69,6 +97,7 @@ export const getDashboard = async () => {
     inProgress,
     finished,
     violations,
+    totalExamsFiltered,
     exams,
   ] = await Promise.all([
     cbtRepository.countParticipants(),
@@ -87,10 +116,16 @@ export const getDashboard = async () => {
     cbtRepository.countAttempts({ status: 'IN_PROGRESS', expiredAt: { gt: now } }),
     cbtRepository.countAttempts({ status: 'FINISHED' }),
     cbtRepository.countViolations(),
+    cbtRepository.prisma.exam.count({ where }),
     cbtRepository.prisma.exam.findMany({
+      where,
       orderBy: { startAt: 'desc' },
-      take: 10,
-      include: { _count: { select: { assignments: true } } },
+      skip: (page - 1) * perPage,
+      take: perPage,
+      include: {
+        competition: true,
+        _count: { select: { assignments: true } },
+      },
     }),
   ]);
 
@@ -104,11 +139,22 @@ export const getDashboard = async () => {
       finished,
       violations,
     },
-    participantsPerExam: exams.map((exam) => ({
-      examId: exam.id,
-      title: exam.title,
-      participants: exam._count.assignments,
-    })),
+    participantsPerExam: {
+      data: exams.map((exam) => ({
+        examId: exam.id,
+        title: exam.title,
+        competitionTitle: exam.competition?.title || 'Umum/Tanpa Kompetisi',
+        startAt: exam.startAt,
+        endAt: exam.endAt,
+        participants: exam._count.assignments,
+      })),
+      meta: {
+        page,
+        perPage,
+        total: totalExamsFiltered,
+        totalPages: Math.ceil(totalExamsFiltered / perPage),
+      },
+    },
   };
 };
 

@@ -10,7 +10,7 @@ const handleError = (res, err) => {
 
 export const dashboard = async (req, res) => {
   try {
-    res.json(await service.getDashboard());
+    res.json(await service.getDashboard(req.query));
   } catch (err) {
     handleError(res, err);
   }
