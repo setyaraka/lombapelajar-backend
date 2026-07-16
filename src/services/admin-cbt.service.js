@@ -317,32 +317,62 @@ export const deleteParticipant = (id) => cbtRepository.deleteParticipant(id);
 
 export const assignParticipants = async (body) => {
   const payload = validate(assignmentSchema, body);
-  const participantIds = payload.participantIds?.length
-    ? payload.participantIds
-    : payload.stageId
-      ? (
-          await cbtRepository.prisma.participant.findMany({
-            where: { stageId: payload.stageId, isActive: true },
-            select: { id: true },
-          })
-        ).map((participant) => participant.id)
-      : [];
-  const examIds = payload.examIds?.length
-    ? payload.examIds
-    : payload.examId
-      ? [payload.examId]
-      : [];
 
-  if (examIds.length === 0) {
-    const error = new Error('Exams are required');
-    error.status = 400;
-    throw error;
+  let participantIds = [];
+  if (payload.participantIds?.length) {
+    participantIds = payload.participantIds;
+  } else if (payload.sourceStageId) {
+    const sourceParticipants = await cbtRepository.prisma.participant.findMany({
+      where: { stageId: payload.sourceStageId, isActive: true },
+      select: { id: true },
+    });
+    participantIds = sourceParticipants.map((p) => p.id);
+  } else if (payload.stageId) {
+    const stageParticipants = await cbtRepository.prisma.participant.findMany({
+      where: { stageId: payload.stageId, isActive: true },
+      select: { id: true },
+    });
+    participantIds = stageParticipants.map((p) => p.id);
   }
 
   if (participantIds.length === 0) {
     const error = new Error(
-      payload.stageId ? 'Tidak ada peserta aktif pada tahapan ini' : 'Participants are required',
+      payload.sourceStageId
+        ? 'Tidak ada peserta aktif pada tahapan sumber ini'
+        : 'Participants are required',
     );
+    error.status = 400;
+    throw error;
+  }
+
+  // Update participant stageId if target stageId is provided
+  if (payload.stageId) {
+    await cbtRepository.prisma.participant.updateMany({
+      where: { id: { in: participantIds } },
+      data: { stageId: payload.stageId },
+    });
+  }
+
+  let examIds = [];
+  if (payload.examIds?.length) {
+    examIds = payload.examIds;
+  } else if (payload.examId) {
+    examIds = [payload.examId];
+  } else if (payload.stageId && payload.competitionId) {
+    // Auto-assign all exams belonging to this stage and competition
+    const exams = await cbtRepository.prisma.exam.findMany({
+      where: {
+        stageId: payload.stageId,
+        competitionId: payload.competitionId,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    examIds = exams.map((e) => e.id);
+  }
+
+  if (examIds.length === 0) {
+    const error = new Error('Tidak ada ujian aktif pada babak dan kompetisi tersebut');
     error.status = 400;
     throw error;
   }

@@ -39,6 +39,8 @@ export const assignmentSchema = z.object({
   participantIds: z.array(z.string().uuid()).min(1).optional(),
   stageId: z.string().uuid().optional(),
   examId: z.string().uuid().optional(),
+  competitionId: z.string().uuid().optional(),
+  sourceStageId: z.string().uuid().optional(),
 });
 
 export const questionSchema = z.object({
