@@ -190,10 +190,7 @@ export const results = async (req, res) => {
 
 export const exportResults = async (req, res) => {
   try {
-    const csv = await service.exportResultsCsv(req.query);
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="hasil-ujian.csv"');
-    res.send(csv);
+    await service.exportResultsExcel(req.query, res);
   } catch (err) {
     handleError(res, err);
   }

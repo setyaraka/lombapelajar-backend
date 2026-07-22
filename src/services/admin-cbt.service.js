@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import ExcelJS from 'exceljs';
 import { cbtRepository } from '../repositories/cbt.repository.js';
 import {
   assignmentSchema,
@@ -532,6 +533,66 @@ export const exportResultsCsv = async (query) => {
   );
 
   return '\ufeff' + [header.map(csvEscape).join(';'), ...lines].join('\n');
+};
+
+export const exportResultsExcel = async (query, res) => {
+  const examId = query.examId || '';
+  const where = {
+    AND: [{ status: 'FINISHED' }, examId ? { examId } : {}],
+  };
+
+  const rows = await cbtRepository.results({ where });
+
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Hasil Ujian');
+
+  worksheet.columns = [
+    { header: 'Nomor Peserta', key: 'participantNumber', width: 20 },
+    { header: 'Nama Peserta', key: 'participantName', width: 25 },
+    { header: 'Ujian', key: 'examTitle', width: 30 },
+    { header: 'Jumlah Jawaban', key: 'answerCount', width: 18 },
+    { header: 'Pelanggaran', key: 'violationCount', width: 15 },
+    { header: 'Selesai Pada', key: 'finishedAt', width: 22 },
+    { header: 'Nilai Akhir', key: 'score', width: 15 },
+  ];
+
+  const headerRow = worksheet.getRow(1);
+  headerRow.font = { bold: true };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  rows.forEach((row) => {
+    worksheet.addRow({
+      participantNumber: row.participant?.participantNumber || '-',
+      participantName: row.participant?.name || row.user.name,
+      examTitle: row.exam.title,
+      answerCount: row.answers.length,
+      violationCount: row.violations.length,
+      finishedAt: row.finishedAt ? new Date(row.finishedAt).toLocaleString('id-ID') : '',
+      score: row.score ?? '',
+    });
+  });
+
+  worksheet.columns.forEach((column) => {
+    let maxLength = column.header.length;
+    column.eachCell({ includeEmpty: true }, (cell) => {
+      const value = cell.value ? String(cell.value) : '';
+      if (value.length > maxLength) {
+        maxLength = value.length;
+      }
+    });
+    column.width = Math.max(maxLength + 3, 10);
+  });
+
+  res.setHeader(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  );
+  res.setHeader(
+    'Content-Disposition',
+    'attachment; filename="hasil-ujian.xlsx"'
+  );
+
+  await workbook.xlsx.write(res);
 };
 
 export const listRegisteredUsers = async () => {
