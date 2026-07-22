@@ -71,20 +71,20 @@ export const getDashboard = async (query = {}) => {
     AND: [
       search
         ? {
-            OR: [
-              { title: { contains: search, mode: 'insensitive' } },
-              { competition: { title: { contains: search, mode: 'insensitive' } } },
-            ],
-          }
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { competition: { title: { contains: search, mode: 'insensitive' } } },
+          ],
+        }
         : {},
       competitionId ? { competitionId } : {},
       date
         ? {
-            startAt: {
-              gte: new Date(`${date}T00:00:00.000Z`),
-              lte: new Date(`${date}T23:59:59.999Z`),
-            },
-          }
+          startAt: {
+            gte: new Date(`${date}T00:00:00.000Z`),
+            lte: new Date(`${date}T23:59:59.999Z`),
+          },
+        }
         : {},
     ],
   };
@@ -239,12 +239,12 @@ export const listParticipants = async (query) => {
     AND: [
       search
         ? {
-            OR: [
-              { name: { contains: search, mode: 'insensitive' } },
-              { email: { contains: search, mode: 'insensitive' } },
-              { participantNumber: { contains: search, mode: 'insensitive' } },
-            ],
-          }
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+            { participantNumber: { contains: search, mode: 'insensitive' } },
+          ],
+        }
         : {},
       stageId ? { stageId } : {},
     ],
@@ -430,17 +430,17 @@ export const updateQuestion = (id, body) => {
         ...(payload.position !== undefined ? { position: payload.position } : {}),
         ...(payload.options
           ? {
-              options: {
-                create:
-                  payload.type === 'ESSAY'
-                    ? []
-                    : payload.options.map((option, index) => ({
-                        text: option.text,
-                        isCorrect: option.isCorrect,
-                        position: option.position ?? index,
-                      })),
-              },
-            }
+            options: {
+              create:
+                payload.type === 'ESSAY'
+                  ? []
+                  : payload.options.map((option, index) => ({
+                    text: option.text,
+                    isCorrect: option.isCorrect,
+                    position: option.position ?? index,
+                  })),
+            },
+          }
           : {}),
       },
       include: { options: { orderBy: { position: 'asc' } } },
@@ -510,28 +510,28 @@ export const exportResultsCsv = async (query) => {
   const result = await getResults({ ...query, page: 1, perPage: 100 });
   const header = [
     'Nomor Peserta',
-    'Nama',
+    'Nama Peserta',
     'Ujian',
-    'Nilai',
-    'Selesai Pada',
+    'Jumlah Jawaban',
     'Pelanggaran',
-    'Jawaban',
+    'Selesai Pada',
+    'Nilai Akhir',
   ];
   const lines = result.data.map((row) =>
     [
       row.participantNumber,
       row.participantName,
       row.examTitle,
-      row.score ?? '',
-      row.finishedAt ? row.finishedAt.toISOString() : '',
-      row.violationCount,
       row.answerCount,
+      row.violationCount,
+      row.finishedAt ? new Date(row.finishedAt).toLocaleString('id-ID') : '',
+      row.score ?? '',
     ]
       .map(csvEscape)
-      .join(','),
+      .join(';'),
   );
 
-  return [header.map(csvEscape).join(','), ...lines].join('\n');
+  return '\ufeff' + [header.map(csvEscape).join(';'), ...lines].join('\n');
 };
 
 export const listRegisteredUsers = async () => {
