@@ -196,6 +196,22 @@ export const exportResults = async (req, res) => {
   }
 };
 
+export const essayAnswers = async (req, res) => {
+  try {
+    res.json(await service.getEssayAnswers(req.params.attemptId));
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
+export const gradeEssayAnswer = async (req, res) => {
+  try {
+    res.json(await service.gradeEssayAnswer(req.params.answerId, req.body));
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
 export const listRegisteredUsers = async (req, res) => {
   try {
     res.json(await service.listRegisteredUsers());

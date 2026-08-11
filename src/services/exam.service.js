@@ -73,16 +73,25 @@ const buildAttemptPayload = (attempt, exam, serverTime = new Date()) => {
     .map((questionId) => questionById.get(questionId))
     .filter(Boolean)
     .map((question) => {
+      // Soal ESSAY tidak punya "opsi" untuk dipilih peserta — options-nya di
+      // database cuma menyimpan satu ExamOption berisi kunci jawaban
+      // (isCorrect = true, dipakai calculateScore). Kalau ikut di-map seperti
+      // tipe pilihan, kunci jawaban itu akan terkirim mentah ke payload
+      // peserta (kelihatan lewat network tab). Jadi khusus ESSAY, options
+      // selalu dikosongkan di sini.
       const orderedOptionIds =
         optionOrder[question.id] || question.options.map((option) => option.id);
       const optionById = new Map(question.options.map((option) => [option.id, option]));
-      const options = orderedOptionIds
-        .map((optionId) => optionById.get(optionId))
-        .filter(Boolean)
-        .map((option) => ({
-          id: option.id,
-          text: option.text,
-        }));
+      const options =
+        question.type === 'ESSAY'
+          ? []
+          : orderedOptionIds
+              .map((optionId) => optionById.get(optionId))
+              .filter(Boolean)
+              .map((option) => ({
+                id: option.id,
+                text: option.text,
+              }));
 
       return {
         id: question.id,
@@ -126,14 +135,85 @@ const buildAttemptPayload = (attempt, exam, serverTime = new Date()) => {
   };
 };
 
+// Menilai satu jawaban terhadap satu soal. Untuk ESSAY, penilaian otomatis
+// memakai exact-match (byte-exact, tanpa normalisasi huruf besar/kecil atau
+// spasi) terhadap kunci jawaban yang disimpan sebagai satu ExamOption dengan
+// isCorrect = true untuk soal tsb. Kalau admin belum mengisi kunci jawaban,
+// isCorrect/pointsEarned dikembalikan null (belum bisa dinilai otomatis) —
+// admin bisa mengisi/mengoreksi lewat gradeEssayAnswer di admin-cbt.service.js.
+const gradeAnswer = (question, rawAnswer) => {
+  if (question.type === 'ESSAY') {
+    const answerKey = question.options.find((option) => option.isCorrect)?.text;
+    if (answerKey === undefined || answerKey === null) {
+      return { isCorrect: null, pointsEarned: null };
+    }
+
+    const submitted = typeof rawAnswer === 'string' ? rawAnswer : '';
+    const isCorrect = submitted === answerKey;
+    return { isCorrect, pointsEarned: isCorrect ? question.points : 0 };
+  }
+
+  const correctIds = question.options
+    .filter((option) => option.isCorrect)
+    .map((option) => option.id)
+    .sort();
+  const selectedIds = Array.isArray(rawAnswer) ? rawAnswer : rawAnswer ? [rawAnswer] : [];
+  const normalized = [...selectedIds].sort();
+  const isCorrect =
+    correctIds.length === normalized.length &&
+    correctIds.every((id, index) => id === normalized[index]);
+
+  return { isCorrect, pointsEarned: isCorrect ? question.points : 0 };
+};
+
+// Mengembalikan skor total attempt + rincian nilai per soal (grades).
+// `grades` dipakai untuk menulis ulang ExamAnswer.pointsEarned/isCorrect
+// (lihat persistGrades) supaya admin bisa melihat & mengoreksi per jawaban,
+// bukan cuma melihat satu angka skor akhir yang tidak bisa ditelusuri.
+const calculateScore = (exam, answers) => {
+  const answerMap = new Map(answers.map((answer) => [answer.questionId, answer.answer]));
+  const totalPoints = exam.questions.reduce((sum, question) => sum + question.points, 0);
+
+  const grades = exam.questions.map((question) => ({
+    questionId: question.id,
+    ...gradeAnswer(question, answerMap.get(question.id)),
+  }));
+
+  const score = totalPoints
+    ? grades.reduce((sum, grade) => sum + (grade.pointsEarned || 0), 0)
+    : null;
+
+  return { score, grades };
+};
+
+const persistGrades = async (tx, attemptId, grades) => {
+  // updateMany per soal karena ExamAnswer hanya punya baris untuk soal yang
+  // benar-benar dijawab peserta — soal yang tidak dijawab akan cocok 0 baris
+  // (no-op, bukan error). Jumlah query = jumlah soal pada exam, dijalankan
+  // sekali saja saat attempt selesai (submit atau auto-expire), bukan per
+  // request seperti autosave — dampak ke beban DB minimal.
+  await Promise.all(
+    grades.map((grade) =>
+      tx.examAnswer.updateMany({
+        where: { attemptId, questionId: grade.questionId },
+        data: { isCorrect: grade.isCorrect, pointsEarned: grade.pointsEarned },
+      }),
+    ),
+  );
+};
+
 const markExpiredIfNeeded = async (tx, attempt, now) => {
   if (attempt.status !== IN_PROGRESS || attempt.expiredAt > now) return attempt;
+
+  const { score, grades } = calculateScore(attempt.exam, attempt.answers);
+  await persistGrades(tx, attempt.id, grades);
 
   return tx.examAttempt.update({
     where: { id: attempt.id },
     data: {
       status: FINISHED,
       finishedAt: attempt.finishedAt || now,
+      score,
     },
     include: {
       exam: {
@@ -147,35 +227,6 @@ const markExpiredIfNeeded = async (tx, attempt, now) => {
       answers: true,
     },
   });
-};
-
-const calculateScore = (exam, answers) => {
-  const answerMap = new Map(answers.map((answer) => [answer.questionId, answer.answer]));
-  const totalPoints = exam.questions.reduce((sum, question) => sum + question.points, 0);
-  if (!totalPoints) return null;
-
-  const earned = exam.questions.reduce((sum, question) => {
-    if (question.type === 'ESSAY') return sum;
-
-    const correctIds = question.options
-      .filter((option) => option.isCorrect)
-      .map((option) => option.id)
-      .sort();
-    const rawAnswer = answerMap.get(question.id);
-    const selectedIds = Array.isArray(rawAnswer) ? rawAnswer : rawAnswer ? [rawAnswer] : [];
-    const normalized = selectedIds.sort();
-
-    if (
-      correctIds.length === normalized.length &&
-      correctIds.every((id, index) => id === normalized[index])
-    ) {
-      return sum + question.points;
-    }
-
-    return sum;
-  }, 0);
-
-  return earned;
 };
 
 export const getExamStatusForCompetition = async (competition, attempt) => {
@@ -491,10 +542,17 @@ export const submitAttempt = async (userId, attemptId, { auto = false } = {}) =>
     }
 
     if (attempt.status === FINISHED) {
-      return { serverTime: now, attempt };
+      // Jangan kembalikan `attempt` mentah di sini — objek ini membawa relasi
+      // exam.questions.options (termasuk isCorrect & kunci jawaban esai) hasil
+      // include di atas, dan endpoint ini di-return langsung ke browser peserta
+      // (lihat exam.controller.js `submit`). Lucuti ke field skalar saja,
+      // sama seperti bentuk `updated` di bawah.
+      const { exam: _exam, answers: _answers, ...safeAttempt } = attempt;
+      return { serverTime: now, attempt: safeAttempt };
     }
 
-    const score = calculateScore(attempt.exam, attempt.answers);
+    const { score, grades } = calculateScore(attempt.exam, attempt.answers);
+    await persistGrades(tx, attempt.id, grades);
     const updated = await tx.examAttempt.update({
       where: { id: attempt.id },
       data: {

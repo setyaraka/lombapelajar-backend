@@ -36,5 +36,7 @@ router.delete('/questions/:id', ctrl.deleteQuestion);
 router.get('/monitoring', ctrl.monitoring);
 router.get('/results', ctrl.results);
 router.get('/results/export', ctrl.exportResults);
+router.get('/results/:attemptId/essay-answers', ctrl.essayAnswers);
+router.patch('/answers/:answerId/grade', ctrl.gradeEssayAnswer);
 
 export default router;

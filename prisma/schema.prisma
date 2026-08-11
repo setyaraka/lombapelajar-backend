@@ -205,13 +205,16 @@ model ExamAssignment {
 }
 
 model ExamAnswer {
-  id          String       @id @default(uuid())
-  attemptId   String
-  questionId  String
-  answer      Json
-  savedAt     DateTime     @default(now())
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id             String       @id @default(uuid())
+  attemptId      String
+  questionId     String
+  answer         Json
+  savedAt        DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  pointsEarned   Float?
+  isCorrect      Boolean?
+  gradedManually Boolean      @default(false)
 
   attempt     ExamAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question    ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)

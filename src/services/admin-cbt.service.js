@@ -393,7 +393,11 @@ export const listQuestions = (examId) => cbtRepository.listQuestions(examId);
 export const createQuestion = (body) => {
   const payload = validate(questionSchema, body);
   const points = defaultQuestionPoints(payload.type, payload.points);
-  const options = payload.type === 'ESSAY' ? [] : payload.options;
+  // ESSAY tetap pakai `options` — bukan untuk pilihan jawaban, tapi menyimpan
+  // satu kunci jawaban (isCorrect: true) yang dipakai exact-match grading di
+  // calculateScore (exam.service.js). Payload untuk ESSAY dikirim frontend
+  // sebagai array 0-1 elemen, jadi tidak perlu dipaksa kosong di sini lagi.
+  const options = payload.options;
 
   return cbtRepository.createQuestion({
     examId: payload.examId,
@@ -431,15 +435,14 @@ export const updateQuestion = (id, body) => {
         ...(payload.position !== undefined ? { position: payload.position } : {}),
         ...(payload.options
           ? {
+            // Sama seperti createQuestion: ESSAY memakai `options` untuk
+            // menyimpan kunci jawaban, jadi tidak lagi dipaksa kosong di sini.
             options: {
-              create:
-                payload.type === 'ESSAY'
-                  ? []
-                  : payload.options.map((option, index) => ({
-                    text: option.text,
-                    isCorrect: option.isCorrect,
-                    position: option.position ?? index,
-                  })),
+              create: payload.options.map((option, index) => ({
+                text: option.text,
+                isCorrect: option.isCorrect,
+                position: option.position ?? index,
+              })),
             },
           }
           : {}),
@@ -505,6 +508,106 @@ export const getResults = async (query) => {
     })),
     meta: { page, perPage, total, totalPages: Math.ceil(total / perPage) },
   };
+};
+
+// Dipakai halaman "Hasil Ujian" admin untuk menampilkan & mengoreksi jawaban
+// esai satu attempt. Auto-grading exact-match sudah jalan saat submit
+// (exam.service.js calculateScore), ini jalur untuk admin meninjau ulang /
+// override manual — sesuai permintaan client bahwa koreksi manual esai
+// sifatnya opsional per babak, bukan pengganti auto-grading.
+export const getEssayAnswers = async (attemptId) => {
+  const attempt = await cbtRepository.prisma.examAttempt.findUnique({
+    where: { id: attemptId },
+    include: {
+      participant: true,
+      user: true,
+      exam: {
+        include: {
+          questions: {
+            where: { type: 'ESSAY' },
+            orderBy: { position: 'asc' },
+            include: { options: { orderBy: { position: 'asc' } } },
+          },
+        },
+      },
+      answers: true,
+    },
+  });
+
+  if (!attempt) {
+    const error = new Error('Attempt not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const answerByQuestion = new Map(attempt.answers.map((answer) => [answer.questionId, answer]));
+
+  return {
+    attemptId: attempt.id,
+    participantName: attempt.participant?.name || attempt.user.name,
+    examTitle: attempt.exam.title,
+    questions: attempt.exam.questions.map((question) => {
+      const answer = answerByQuestion.get(question.id);
+      return {
+        answerId: answer?.id ?? null,
+        questionId: question.id,
+        text: question.text,
+        points: question.points,
+        answerKey: question.options.find((option) => option.isCorrect)?.text ?? null,
+        submittedAnswer: typeof answer?.answer === 'string' ? answer.answer : '',
+        isCorrect: answer?.isCorrect ?? null,
+        pointsEarned: answer?.pointsEarned ?? null,
+        gradedManually: answer?.gradedManually ?? false,
+      };
+    }),
+  };
+};
+
+export const gradeEssayAnswer = async (answerId, { pointsEarned, isCorrect }) => {
+  return cbtRepository.prisma.$transaction(async (tx) => {
+    const answer = await tx.examAnswer.findUnique({
+      where: { id: answerId },
+      include: { question: true },
+    });
+
+    if (!answer) {
+      const error = new Error('Jawaban tidak ditemukan');
+      error.status = 404;
+      throw error;
+    }
+    if (answer.question.type !== 'ESSAY') {
+      const error = new Error('Hanya jawaban esai yang bisa dikoreksi manual di sini');
+      error.status = 400;
+      throw error;
+    }
+
+    const clampedPoints = Math.max(
+      0,
+      Math.min(answer.question.points, Number(pointsEarned) || 0),
+    );
+
+    const updatedAnswer = await tx.examAnswer.update({
+      where: { id: answerId },
+      data: {
+        pointsEarned: clampedPoints,
+        isCorrect: typeof isCorrect === 'boolean' ? isCorrect : clampedPoints > 0,
+        gradedManually: true,
+      },
+    });
+
+    // Skor attempt dihitung ulang dari total pointsEarned seluruh jawaban
+    // (bukan cuma esai) supaya tetap konsisten dengan cara calculateScore /
+    // persistGrades menulis skor saat submit (exam.service.js).
+    const allAnswers = await tx.examAnswer.findMany({ where: { attemptId: answer.attemptId } });
+    const newScore = allAnswers.reduce((sum, a) => sum + (a.pointsEarned || 0), 0);
+
+    await tx.examAttempt.update({
+      where: { id: answer.attemptId },
+      data: { score: newScore },
+    });
+
+    return updatedAnswer;
+  });
 };
 
 export const exportResultsCsv = async (query) => {
