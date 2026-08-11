@@ -502,12 +502,87 @@ export const getResults = async (query) => {
       participantNumber: attempt.participant?.participantNumber || '-',
       examTitle: attempt.exam.title,
       score: attempt.score,
+      // rank dihitung per Stage (bisa gabungan >1 exam), bukan otomatis per
+      // attempt — lihat recomputeStageRanking. Null berarti admin belum
+      // pernah menekan "Hitung Ranking" untuk stage exam ini, atau attempt
+      // ini belum tergabung ke exam manapun yang punya stage.
+      rank: attempt.rank,
       finishedAt: attempt.finishedAt,
       violationCount: attempt.violations.length,
       answerCount: attempt.answers.length,
     })),
     meta: { page, perPage, total, totalPages: Math.ceil(total / perPage) },
   };
+};
+
+// Ranking per Stage — dihitung manual oleh admin (bukan otomatis tiap
+// submit) supaya tidak menambah beban di endpoint submit yang sudah jadi
+// titik rawan saat 300 peserta submit bersamaan (lihat audit produksi).
+// Jalankan ulang kapan saja skor berubah (mis. setelah koreksi esai manual
+// di gradeEssayAnswer) supaya rank tetap akurat sebelum diumumkan.
+//
+// Kalau satu stage punya lebih dari satu Exam, skor peserta dijumlah apa
+// adanya dari seluruh attempt FINISHED miliknya di exam-exam stage itu —
+// TIDAK dinormalisasi ke skala yang sama. Kalau nanti tiap exam di satu
+// stage punya total poin yang beda jauh, pertimbangkan normalisasi
+// (skor/maxPoin) sebelum dijumlah supaya adil. Untuk setup saat ini
+// (1 stage = 1 exam per chat requirement), penjumlahan ini otomatis sama
+// dengan skor exam itu sendiri, jadi tidak mengubah perilaku yang sudah ada.
+export const recomputeStageRanking = async (stageId) => {
+  const exams = await cbtRepository.prisma.exam.findMany({
+    where: { stageId },
+    select: { id: true },
+  });
+  const examIds = exams.map((exam) => exam.id);
+
+  if (examIds.length === 0) {
+    const error = new Error('Stage ini belum punya exam');
+    error.status = 400;
+    throw error;
+  }
+
+  const attempts = await cbtRepository.prisma.examAttempt.findMany({
+    where: { examId: { in: examIds }, status: 'FINISHED' },
+    select: { id: true, participantId: true, userId: true, score: true },
+  });
+
+  // Kelompokkan attempt per peserta. Fallback ke userId kalau participantId
+  // kosong (harusnya tidak terjadi untuk attempt hasil assignment resmi,
+  // tapi dijaga supaya tidak error kalau ada data lama/anomali).
+  const totals = new Map();
+  for (const attempt of attempts) {
+    const key = attempt.participantId || `user:${attempt.userId}`;
+    if (!totals.has(key)) totals.set(key, { total: 0, attemptIds: [] });
+    const entry = totals.get(key);
+    entry.total += attempt.score || 0;
+    entry.attemptIds.push(attempt.id);
+  }
+
+  // Standard competition ranking (1-2-2-4): peserta dengan total sama
+  // berbagi rank yang sama, rank berikutnya lompat sesuai jumlah yang
+  // sudah dilewati.
+  const sorted = [...totals.entries()].sort((a, b) => b[1].total - a[1].total);
+  const updates = [];
+  let rank = 0;
+  let prevTotal = null;
+  sorted.forEach(([, entry], index) => {
+    if (entry.total !== prevTotal) {
+      rank = index + 1;
+      prevTotal = entry.total;
+    }
+    entry.attemptIds.forEach((attemptId) => updates.push({ attemptId, rank }));
+  });
+
+  await cbtRepository.prisma.$transaction(
+    updates.map(({ attemptId, rank: attemptRank }) =>
+      cbtRepository.prisma.examAttempt.update({
+        where: { id: attemptId },
+        data: { rank: attemptRank },
+      }),
+    ),
+  );
+
+  return { stageId, participantsRanked: sorted.length, attemptsUpdated: updates.length };
 };
 
 // Dipakai halaman "Hasil Ujian" admin untuk menampilkan & mengoreksi jawaban
@@ -620,6 +695,7 @@ export const exportResultsCsv = async (query) => {
     'Pelanggaran',
     'Selesai Pada',
     'Nilai Akhir',
+    'Ranking',
   ];
   const lines = result.data.map((row) =>
     [
@@ -630,6 +706,7 @@ export const exportResultsCsv = async (query) => {
       row.violationCount,
       row.finishedAt ? new Date(row.finishedAt).toLocaleString('id-ID') : '',
       row.score ?? '',
+      row.rank ?? '',
     ]
       .map(csvEscape)
       .join(';'),
@@ -657,6 +734,7 @@ export const exportResultsExcel = async (query, res) => {
     { header: 'Pelanggaran', key: 'violationCount', width: 15 },
     { header: 'Selesai Pada', key: 'finishedAt', width: 22 },
     { header: 'Nilai Akhir', key: 'score', width: 15 },
+    { header: 'Ranking', key: 'rank', width: 12 },
   ];
 
   const headerRow = worksheet.getRow(1);
@@ -672,6 +750,7 @@ export const exportResultsExcel = async (query, res) => {
       violationCount: row.violations.length,
       finishedAt: row.finishedAt ? new Date(row.finishedAt).toLocaleString('id-ID') : '',
       score: row.score ?? '',
+      rank: row.rank ?? '',
     });
   });
 

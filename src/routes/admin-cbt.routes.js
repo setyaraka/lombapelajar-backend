@@ -13,6 +13,7 @@ router.get('/stages', ctrl.listStages);
 router.post('/stages', ctrl.createStage);
 router.put('/stages/:id', ctrl.updateStage);
 router.delete('/stages/:id', ctrl.deleteStage);
+router.post('/stages/:stageId/recompute-ranking', ctrl.recomputeRanking);
 
 router.get('/exams', ctrl.listExams);
 router.get('/exams/:id', ctrl.getExam);

@@ -196,6 +196,14 @@ export const exportResults = async (req, res) => {
   }
 };
 
+export const recomputeRanking = async (req, res) => {
+  try {
+    res.json(await service.recomputeStageRanking(req.params.stageId));
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
 export const essayAnswers = async (req, res) => {
   try {
     res.json(await service.getEssayAnswers(req.params.attemptId));
