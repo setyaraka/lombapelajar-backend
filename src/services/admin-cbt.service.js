@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt';
 import ExcelJS from 'exceljs';
+import PDFDocument from 'pdfkit';
 import { cbtRepository } from '../repositories/cbt.repository.js';
 import {
   assignmentSchema,
@@ -775,6 +776,102 @@ export const exportResultsExcel = async (query, res) => {
   );
 
   await workbook.xlsx.write(res);
+};
+
+// Sama seperti exportResultsExcel (kolom & filter sama persis), tapi keluar
+// sebagai PDF pakai pdfkit — sudah jadi dependency di package.json tapi
+// belum pernah dipakai di mana pun. pdfkit tidak punya komponen tabel
+// bawaan, jadi layout tabel di bawah ini digambar manual (posisi teks per
+// kolom + garis header), termasuk cetak ulang header tiap kali pindah
+// halaman. Sama seperti exportResultsExcel, query ini tidak dipaginasi —
+// untuk jumlah peserta yang sangat besar, generate PDF bisa memakan waktu
+// karena tiap baris butuh perhitungan posisi teks satu per satu (lebih berat
+// dari sekadar menulis baris Excel). Untuk skala ratusan peserta per exam,
+// ini masih wajar; kalau nanti ribuan peserta dalam satu export, pertimbangkan
+// job terpisah dari proses utama (sama seperti catatan P1 di audit produksi).
+export const exportResultsPdf = async (query, res) => {
+  const examId = query.examId || '';
+  const where = {
+    AND: [{ status: 'FINISHED' }, examId ? { examId } : {}],
+  };
+
+  const rows = await cbtRepository.results({ where });
+
+  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename="hasil-ujian.pdf"');
+  doc.pipe(res);
+
+  doc.font('Helvetica-Bold').fontSize(16).text('Hasil Ujian', { align: 'center' });
+  doc
+    .font('Helvetica')
+    .fontSize(9)
+    .fillColor('#64748b')
+    .text(`Diekspor pada ${new Date().toLocaleString('id-ID')}`, { align: 'center' });
+  doc.fillColor('#000000');
+  doc.moveDown(1);
+
+  const columns = [
+    { key: 'participantNumber', label: 'Nomor Peserta', width: 95 },
+    { key: 'participantName', label: 'Nama Peserta', width: 135 },
+    { key: 'examTitle', label: 'Ujian', width: 150 },
+    { key: 'answerCount', label: 'Jml Jawaban', width: 65 },
+    { key: 'violationCount', label: 'Pelanggaran', width: 65 },
+    { key: 'finishedAt', label: 'Selesai Pada', width: 115 },
+    { key: 'score', label: 'Nilai', width: 55 },
+    { key: 'rank', label: 'Ranking', width: 55 },
+  ];
+  const rowHeight = 20;
+  const tableLeft = doc.page.margins.left;
+  const tableRight = doc.page.width - doc.page.margins.right;
+
+  const drawHeaderRow = () => {
+    let x = tableLeft;
+    doc.font('Helvetica-Bold').fontSize(9);
+    columns.forEach((column) => {
+      doc.text(column.label, x + 4, doc.y + 5, { width: column.width - 8 });
+      x += column.width;
+    });
+    const lineY = doc.y + rowHeight;
+    doc.moveTo(tableLeft, lineY).lineTo(tableRight, lineY).strokeColor('#cbd5e1').stroke();
+    doc.y = lineY;
+  };
+
+  drawHeaderRow();
+
+  rows.forEach((row) => {
+    if (doc.y + rowHeight > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+      drawHeaderRow();
+    }
+
+    const values = {
+      participantNumber: row.participant?.participantNumber || '-',
+      participantName: row.participant?.name || row.user.name,
+      examTitle: row.exam.title,
+      answerCount: String(row.answers.length),
+      violationCount: String(row.violations.length),
+      finishedAt: row.finishedAt ? new Date(row.finishedAt).toLocaleString('id-ID') : '-',
+      score: row.score ?? '-',
+      rank: row.rank ? `#${row.rank}` : '-',
+    };
+
+    let x = tableLeft;
+    const rowY = doc.y;
+    doc.font('Helvetica').fontSize(9);
+    columns.forEach((column) => {
+      doc.text(String(values[column.key]), x + 4, rowY + 5, { width: column.width - 8 });
+      x += column.width;
+    });
+    doc.y = rowY + rowHeight;
+  });
+
+  if (rows.length === 0) {
+    doc.font('Helvetica').fontSize(10).text('Belum ada hasil ujian yang tersedia.', tableLeft, doc.y + 10);
+  }
+
+  doc.end();
 };
 
 export const listRegisteredUsers = async () => {

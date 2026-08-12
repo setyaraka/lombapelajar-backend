@@ -196,6 +196,14 @@ export const exportResults = async (req, res) => {
   }
 };
 
+export const exportResultsPdf = async (req, res) => {
+  try {
+    await service.exportResultsPdf(req.query, res);
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
 export const recomputeRanking = async (req, res) => {
   try {
     res.json(await service.recomputeStageRanking(req.params.stageId));
