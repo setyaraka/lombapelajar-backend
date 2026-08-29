@@ -689,10 +689,17 @@ export const gradeEssayAnswer = async (answerId, { pointsEarned, isCorrect }) =>
     });
 
     // Skor attempt dihitung ulang dari total pointsEarned seluruh jawaban
-    // (bukan cuma esai) supaya tetap konsisten dengan cara calculateScore /
-    // persistGrades menulis skor saat submit (exam.service.js).
+    // (bukan cuma esai), dinormalisasi ke skala 0-100 dengan rumus yang
+    // sama persis dengan calculateScore di exam.service.js (harus tetap
+    // konsisten - itu tempat lain yang menghitung score saat submit).
     const allAnswers = await tx.examAnswer.findMany({ where: { attemptId: answer.attemptId } });
-    const newScore = allAnswers.reduce((sum, a) => sum + (a.pointsEarned || 0), 0);
+    const rawPoints = allAnswers.reduce((sum, a) => sum + (a.pointsEarned || 0), 0);
+    const totalPoints = await tx.examQuestion.aggregate({
+      where: { examId: answer.question.examId },
+      _sum: { points: true },
+    });
+    const totalPointsSum = totalPoints._sum.points || 0;
+    const newScore = totalPointsSum ? Math.round((rawPoints / totalPointsSum) * 10000) / 100 : null;
 
     await tx.examAttempt.update({
       where: { id: answer.attemptId },

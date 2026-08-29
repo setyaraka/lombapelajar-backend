@@ -47,7 +47,7 @@ export const questionSchema = z.object({
   examId: z.string().uuid(),
   text: nonEmptyString,
   type: z.enum(['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'ESSAY']).default('SINGLE_CHOICE'),
-  points: z.coerce.number().int().min(0).optional(),
+  points: z.coerce.number().int().min(1).max(10).optional(),
   position: z.coerce.number().int().min(0).default(0),
   options: z
     .array(

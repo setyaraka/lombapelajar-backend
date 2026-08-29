@@ -179,9 +179,13 @@ const calculateScore = (exam, answers) => {
     ...gradeAnswer(question, answerMap.get(question.id)),
   }));
 
-  const score = totalPoints
-    ? grades.reduce((sum, grade) => sum + (grade.pointsEarned || 0), 0)
-    : null;
+  // Dinormalisasi ke skala 0-100 (bukan jumlah poin mentah) supaya nilai
+  // antar ujian bisa dibandingkan/dijumlahkan secara adil di ranking tahap
+  // (recomputeStageRanking, admin-cbt.service.js) walau jumlah soal atau
+  // total bobot poinnya beda-beda tiap ujian. Dibulatkan 2 desimal biar
+  // tidak tampil pecahan panjang (mis. 66.66666...).
+  const rawPoints = grades.reduce((sum, grade) => sum + (grade.pointsEarned || 0), 0);
+  const score = totalPoints ? Math.round((rawPoints / totalPoints) * 10000) / 100 : null;
 
   return { score, grades };
 };
