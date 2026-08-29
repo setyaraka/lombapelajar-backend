@@ -73,20 +73,20 @@ export const getDashboard = async (query = {}) => {
     AND: [
       search
         ? {
-          OR: [
-            { title: { contains: search, mode: 'insensitive' } },
-            { competition: { title: { contains: search, mode: 'insensitive' } } },
-          ],
-        }
+            OR: [
+              { title: { contains: search, mode: 'insensitive' } },
+              { competition: { title: { contains: search, mode: 'insensitive' } } },
+            ],
+          }
         : {},
       competitionId ? { competitionId } : {},
       date
         ? {
-          startAt: {
-            gte: new Date(`${date}T00:00:00.000Z`),
-            lte: new Date(`${date}T23:59:59.999Z`),
-          },
-        }
+            startAt: {
+              gte: new Date(`${date}T00:00:00.000Z`),
+              lte: new Date(`${date}T23:59:59.999Z`),
+            },
+          }
         : {},
     ],
   };
@@ -258,12 +258,12 @@ export const listParticipants = async (query) => {
     AND: [
       search
         ? {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { email: { contains: search, mode: 'insensitive' } },
-            { participantNumber: { contains: search, mode: 'insensitive' } },
-          ],
-        }
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { email: { contains: search, mode: 'insensitive' } },
+              { participantNumber: { contains: search, mode: 'insensitive' } },
+            ],
+          }
         : {},
       stageId ? { stageId } : {},
     ],
@@ -453,16 +453,16 @@ export const updateQuestion = (id, body) => {
         ...(payload.position !== undefined ? { position: payload.position } : {}),
         ...(payload.options
           ? {
-            // Sama seperti createQuestion: ESSAY memakai `options` untuk
-            // menyimpan kunci jawaban, jadi tidak lagi dipaksa kosong di sini.
-            options: {
-              create: payload.options.map((option, index) => ({
-                text: option.text,
-                isCorrect: option.isCorrect,
-                position: option.position ?? index,
-              })),
-            },
-          }
+              // Sama seperti createQuestion: ESSAY memakai `options` untuk
+              // menyimpan kunci jawaban, jadi tidak lagi dipaksa kosong di sini.
+              options: {
+                create: payload.options.map((option, index) => ({
+                  text: option.text,
+                  isCorrect: option.isCorrect,
+                  position: option.position ?? index,
+                })),
+              },
+            }
           : {}),
       },
       include: { options: { orderBy: { position: 'asc' } } },
@@ -674,10 +674,7 @@ export const gradeEssayAnswer = async (answerId, { pointsEarned, isCorrect }) =>
       throw error;
     }
 
-    const clampedPoints = Math.max(
-      0,
-      Math.min(answer.question.points, Number(pointsEarned) || 0),
-    );
+    const clampedPoints = Math.max(0, Math.min(answer.question.points, Number(pointsEarned) || 0));
 
     const updatedAnswer = await tx.examAnswer.update({
       where: { id: answerId },
@@ -792,12 +789,9 @@ export const exportResultsExcel = async (query, res) => {
 
   res.setHeader(
     'Content-Type',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   );
-  res.setHeader(
-    'Content-Disposition',
-    'attachment; filename="hasil-ujian.xlsx"'
-  );
+  res.setHeader('Content-Disposition', 'attachment; filename="hasil-ujian.xlsx"');
 
   await workbook.xlsx.write(res);
 };
@@ -892,7 +886,10 @@ export const exportResultsPdf = async (query, res) => {
   });
 
   if (rows.length === 0) {
-    doc.font('Helvetica').fontSize(10).text('Belum ada hasil ujian yang tersedia.', tableLeft, doc.y + 10);
+    doc
+      .font('Helvetica')
+      .fontSize(10)
+      .text('Belum ada hasil ujian yang tersedia.', tableLeft, doc.y + 10);
   }
 
   doc.end();
