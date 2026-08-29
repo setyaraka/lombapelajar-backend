@@ -5,15 +5,23 @@ const getExamStatus = (exam, attempt) => {
   if (!exam) return null;
 
   const now = new Date();
-  if (attempt?.status === 'FINISHED')
-    return { examId: exam.id, status: 'FINISHED', label: 'Sudah selesai' };
-  if (exam.startAt > now)
-    return { examId: exam.id, status: 'NOT_STARTED', label: 'Belum memenuhi jadwal' };
-  if (exam.endAt < now)
-    return { examId: exam.id, status: 'SCHEDULE_ENDED', label: 'Jadwal berakhir' };
+  // Field tambahan (examTitle/stageName/startAt/endAt) dipakai untuk
+  // menampilkan nama & jadwal ujian di sisi peserta (CompetitionDetail).
+  // getAllCompetitions tidak include stage, jadi stageName akan null di sana.
+  const base = {
+    examId: exam.id,
+    examTitle: exam.title,
+    stageName: exam.stage?.name ?? null,
+    startAt: exam.startAt,
+    endAt: exam.endAt,
+  };
+
+  if (attempt?.status === 'FINISHED') return { ...base, status: 'FINISHED', label: 'Sudah selesai' };
+  if (exam.startAt > now) return { ...base, status: 'NOT_STARTED', label: 'Belum memenuhi jadwal' };
+  if (exam.endAt < now) return { ...base, status: 'SCHEDULE_ENDED', label: 'Jadwal berakhir' };
   if (attempt?.status === 'IN_PROGRESS')
-    return { examId: exam.id, status: 'IN_PROGRESS', label: 'Sedang berlangsung' };
-  return { examId: exam.id, status: 'AVAILABLE', label: 'Belum dimulai' };
+    return { ...base, status: 'IN_PROGRESS', label: 'Sedang berlangsung' };
+  return { ...base, status: 'AVAILABLE', label: 'Belum dimulai' };
 };
 
 export const getAllCompetitions = async (query, userId) => {
@@ -112,23 +120,36 @@ export const getCompetitionById = async (id, userId) => {
             include: { paymentProof: true },
           }
         : false,
-      exams: {
-        orderBy: { createdAt: 'desc' },
-        take: 1,
-        include: {
-          attempts: userId
-            ? {
-                where: { userId },
-                orderBy: { startedAt: 'desc' },
-                take: 1,
-              }
-            : false,
-        },
-      },
     },
   });
 
   if (!competition) return null;
+
+  // Jadwal ujian peserta untuk kompetisi ini. Tidak bisa lagi hanya ambil
+  // 1 ujian terbaru (exams[0]) karena 1 kompetisi bisa punya beberapa tahap,
+  // dan 1 tahap bisa punya beberapa ujian - jadi kita ambil dari
+  // ExamAssignment (ujian yang benar-benar di-assign ke peserta ybs).
+  let examSchedule = [];
+  if (userId) {
+    const participant = await prisma.participant.findUnique({ where: { userId } });
+
+    if (participant) {
+      const assignments = await prisma.examAssignment.findMany({
+        where: { participantId: participant.id, exam: { competitionId: id } },
+        include: {
+          exam: { include: { stage: true } },
+          attempts: {
+            where: { userId },
+            orderBy: { startedAt: 'desc' },
+            take: 1,
+          },
+        },
+        orderBy: { exam: { startAt: 'asc' } },
+      });
+
+      examSchedule = assignments.map((a) => getExamStatus(a.exam, a.attempts[0]));
+    }
+  }
 
   return {
     ...competition,
@@ -139,7 +160,7 @@ export const getCompetitionById = async (id, userId) => {
         : null,
     creationFile:
       userId && competition.registrations[0] ? competition.registrations[0].creationFile : null,
-    examStatus: getExamStatus(competition.exams[0], competition.exams[0]?.attempts?.[0]),
+    examSchedule,
   };
 };
 
