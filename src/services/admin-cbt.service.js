@@ -442,7 +442,10 @@ export const createQuestion = (body) => {
     // yang sudah ada isinya. Cuma nyala dari DRAFT - kalau admin sudah pernah
     // set INACTIVE/ARCHIVED secara sengaja, itu tidak ditimpa cuma karena
     // nambah soal baru.
-    const exam = await tx.exam.findUnique({ where: { id: payload.examId }, select: { status: true } });
+    const exam = await tx.exam.findUnique({
+      where: { id: payload.examId },
+      select: { status: true },
+    });
     if (exam?.status === 'DRAFT') {
       await tx.exam.update({
         where: { id: payload.examId },

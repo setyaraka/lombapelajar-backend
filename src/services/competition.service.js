@@ -16,7 +16,8 @@ const getExamStatus = (exam, attempt) => {
     endAt: exam.endAt,
   };
 
-  if (attempt?.status === 'FINISHED') return { ...base, status: 'FINISHED', label: 'Sudah selesai' };
+  if (attempt?.status === 'FINISHED')
+    return { ...base, status: 'FINISHED', label: 'Sudah selesai' };
   if (exam.startAt > now) return { ...base, status: 'NOT_STARTED', label: 'Belum memenuhi jadwal' };
   if (exam.endAt < now) return { ...base, status: 'SCHEDULE_ENDED', label: 'Jadwal berakhir' };
   if (attempt?.status === 'IN_PROGRESS')
@@ -42,7 +43,10 @@ const pickCardExamStatus = (schedule) => {
 
   const lastFinished = [...schedule].reverse().find((e) => e.status === 'FINISHED');
   if (lastFinished) {
-    return { ...lastFinished, label: `${lastFinished.stageName || lastFinished.examTitle} telah dilaksanakan` };
+    return {
+      ...lastFinished,
+      label: `${lastFinished.stageName || lastFinished.examTitle} telah dilaksanakan`,
+    };
   }
 
   return schedule[0];
