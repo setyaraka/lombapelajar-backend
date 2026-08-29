@@ -192,7 +192,7 @@ export const updateStage = (id, body) => {
 export const deleteStage = (id) => cbtRepository.deleteStage(id);
 
 export const listExams = async (query) => {
-  const { page, perPage, search, status, stageId, skip, take } = toPagination(query);
+  const { page, perPage, search, status, stageId, sortBy, skip, take } = toPagination(query);
   const where = {
     AND: [
       search ? { title: { contains: search, mode: 'insensitive' } } : {},
@@ -202,7 +202,7 @@ export const listExams = async (query) => {
   };
 
   const [data, total] = await Promise.all([
-    cbtRepository.listExams({ where, skip, take }),
+    cbtRepository.listExams({ where, skip, take, sortBy }),
     cbtRepository.countExamList(where),
   ]);
 
@@ -417,19 +417,40 @@ export const createQuestion = (body) => {
   // sebagai array 0-1 elemen, jadi tidak perlu dipaksa kosong di sini lagi.
   const options = payload.options;
 
-  return cbtRepository.createQuestion({
-    examId: payload.examId,
-    text: payload.text,
-    type: payload.type,
-    points,
-    position: payload.position,
-    options: {
-      create: options.map((option, index) => ({
-        text: option.text,
-        isCorrect: option.isCorrect,
-        position: option.position ?? index,
-      })),
-    },
+  return cbtRepository.prisma.$transaction(async (tx) => {
+    const question = await tx.examQuestion.create({
+      data: {
+        examId: payload.examId,
+        text: payload.text,
+        type: payload.type,
+        points,
+        position: payload.position,
+        options: {
+          create: options.map((option, index) => ({
+            text: option.text,
+            isCorrect: option.isCorrect,
+            position: option.position ?? index,
+          })),
+        },
+      },
+      include: { options: { orderBy: { position: 'asc' } } },
+    });
+
+    // Ujian baru default status DRAFT (examSchema, cbt.validation.js) - begitu
+    // soal pertamanya ditambahkan (PG atau esai), otomatis diaktifkan supaya
+    // admin tidak perlu langkah manual terpisah cuma untuk menyalakan ujian
+    // yang sudah ada isinya. Cuma nyala dari DRAFT - kalau admin sudah pernah
+    // set INACTIVE/ARCHIVED secara sengaja, itu tidak ditimpa cuma karena
+    // nambah soal baru.
+    const exam = await tx.exam.findUnique({ where: { id: payload.examId }, select: { status: true } });
+    if (exam?.status === 'DRAFT') {
+      await tx.exam.update({
+        where: { id: payload.examId },
+        data: { status: 'ACTIVE', isActive: true },
+      });
+    }
+
+    return question;
   });
 };
 

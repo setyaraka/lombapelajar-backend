@@ -68,6 +68,11 @@ export const paginationSchema = z.object({
   status: z.string().trim().optional().default(''),
   stageId: z.string().trim().optional().default(''),
   examId: z.string().trim().optional().default(''),
+  // Dipakai listExams - default 'startAt' (perilaku lama, dipakai tabel
+  // Jadwal & Ujian yang memang perlu urut kronologis tanggal ujian).
+  // 'updatedAt' dipakai picker ujian di Bank Soal, supaya ujian yang baru
+  // saja diedit muncul di paling atas.
+  sortBy: z.enum(['startAt', 'createdAt', 'updatedAt']).optional().default('startAt'),
 });
 
 export const validate = (schema, data) => schema.parse(data);

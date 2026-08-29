@@ -44,12 +44,12 @@ export const cbtRepository = {
     return prisma.examStage.delete({ where: { id } });
   },
 
-  listExams({ where, skip, take }) {
+  listExams({ where, skip, take, sortBy = 'startAt' }) {
     return prisma.exam.findMany({
       where,
       skip,
       take,
-      orderBy: { startAt: 'desc' },
+      orderBy: { [sortBy]: 'desc' },
       include: {
         stage: true,
         competition: true,
