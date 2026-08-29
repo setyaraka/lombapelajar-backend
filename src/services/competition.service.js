@@ -24,6 +24,30 @@ const getExamStatus = (exam, attempt) => {
   return { ...base, status: 'AVAILABLE', label: 'Belum dimulai' };
 };
 
+// Untuk kartu list kompetisi: dari semua ujian yang di-assign ke peserta
+// pada satu kompetisi (bisa banyak tahap), pilih satu yang paling relevan
+// ditampilkan sebagai badge status - prioritas: sedang berlangsung >
+// tersedia sekarang > (kalau belum ada keduanya) tahap TERAKHIR yang sudah
+// selesai (supaya tidak terkesan belum ada progres padahal tahap
+// sebelumnya sudah dikerjakan) > kalau belum ada satupun yang
+// selesai/berlangsung, baru fallback ke ujian paling awal yang belum mulai.
+const pickCardExamStatus = (schedule) => {
+  if (!schedule || schedule.length === 0) return null;
+
+  const inProgress = schedule.find((e) => e.status === 'IN_PROGRESS');
+  if (inProgress) return inProgress;
+
+  const available = schedule.find((e) => e.status === 'AVAILABLE');
+  if (available) return available;
+
+  const lastFinished = [...schedule].reverse().find((e) => e.status === 'FINISHED');
+  if (lastFinished) {
+    return { ...lastFinished, label: `${lastFinished.stageName || lastFinished.examTitle} telah dilaksanakan` };
+  }
+
+  return schedule[0];
+};
+
 export const getAllCompetitions = async (query, userId) => {
   const page = Number(query.page) || 1;
   const perPage = Number(query.perPage) || 10;
@@ -64,24 +88,40 @@ export const getAllCompetitions = async (query, userId) => {
               select: { id: true, creationFile: true },
             }
           : false,
-        exams: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-          include: {
-            attempts: userId
-              ? {
-                  where: { userId },
-                  orderBy: { startedAt: 'desc' },
-                  take: 1,
-                }
-              : false,
-          },
-        },
       },
     }),
   ]);
 
   const now = new Date();
+
+  // Jadwal ujian peserta untuk semua kompetisi di halaman ini, di-fetch
+  // sekaligus (1 query, bukan N+1 per kartu) lalu dikelompokkan per
+  // competitionId - sama seperti logika di getCompetitionById, supaya
+  // badge di kartu list konsisten dengan halaman detail.
+  const scheduleByCompetition = new Map();
+  if (userId && competitions.length > 0) {
+    const participant = await prisma.participant.findUnique({ where: { userId } });
+
+    if (participant) {
+      const assignments = await prisma.examAssignment.findMany({
+        where: {
+          participantId: participant.id,
+          exam: { competitionId: { in: competitions.map((c) => c.id) } },
+        },
+        include: {
+          exam: { include: { stage: true } },
+          attempts: { where: { userId }, orderBy: { startedAt: 'desc' }, take: 1 },
+        },
+        orderBy: { exam: { startAt: 'asc' } },
+      });
+
+      for (const a of assignments) {
+        const list = scheduleByCompetition.get(a.exam.competitionId) || [];
+        list.push(getExamStatus(a.exam, a.attempts[0]));
+        scheduleByCompetition.set(a.exam.competitionId, list);
+      }
+    }
+  }
 
   const mapped = competitions.map((c) => ({
     id: c.id,
@@ -96,7 +136,7 @@ export const getAllCompetitions = async (query, userId) => {
 
     submitted: userId ? c.registrations.length > 0 : false,
     creationFile: userId && c.registrations[0] ? c.registrations[0].creationFile : null,
-    examStatus: getExamStatus(c.exams[0], c.exams[0]?.attempts?.[0]),
+    examStatus: pickCardExamStatus(scheduleByCompetition.get(c.id)),
   }));
 
   return {
