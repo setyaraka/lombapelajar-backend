@@ -162,14 +162,31 @@ export const getDashboard = async (query = {}) => {
 
 export const listStages = () => cbtRepository.listStages();
 
+// Nama stage di-set @unique di schema (FACT, prisma/schema.prisma). Tanpa
+// ini, admin cuma lihat pesan mentah Prisma
+// ("Invalid prisma.examStage.update() invocation...") yang tidak jelas -
+// diterjemahkan jadi pesan yang bisa dipahami + status 409 (Conflict).
+const withFriendlyUniqueNameError = async (run) => {
+  try {
+    return await run();
+  } catch (err) {
+    if (err.code === 'P2002') {
+      const friendly = new Error('Nama tahap ini sudah dipakai, gunakan nama lain.');
+      friendly.status = 409;
+      throw friendly;
+    }
+    throw err;
+  }
+};
+
 export const createStage = (body) => {
   const payload = validate(stageSchema, body);
-  return cbtRepository.createStage(payload);
+  return withFriendlyUniqueNameError(() => cbtRepository.createStage(payload));
 };
 
 export const updateStage = (id, body) => {
   const payload = validate(stageSchema.partial(), body);
-  return cbtRepository.updateStage(id, payload);
+  return withFriendlyUniqueNameError(() => cbtRepository.updateStage(id, payload));
 };
 
 export const deleteStage = (id) => cbtRepository.deleteStage(id);
