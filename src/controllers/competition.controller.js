@@ -100,7 +100,7 @@ export const participants = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const data = await service.getCompetitionParticipants(id);
+    const data = await service.getCompetitionParticipants(id, req.query);
 
     res.json(data);
   } catch {
