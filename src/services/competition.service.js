@@ -312,22 +312,40 @@ export const deleteCompetition = async (id) => {
   });
 };
 
-export const getCompetitionParticipants = async (competitionId) => {
-  const registrations = await prisma.registration.findMany({
-    where: { competitionId },
-    include: {
-      user: true,
-      paymentProof: true,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+export const getCompetitionParticipants = async (competitionId, query = {}) => {
+  const page = Number(query.page) || 1;
+  const perPage = Number(query.perPage) || 10;
 
-  return registrations.map((r) => ({
+  const where = { competitionId };
+
+  const [registrations, total] = await Promise.all([
+    prisma.registration.findMany({
+      where,
+      include: {
+        user: true,
+        paymentProof: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * perPage,
+      take: perPage,
+    }),
+    prisma.registration.count({ where }),
+  ]);
+
+  const mapped = registrations.map((r) => ({
     id: r.id,
     name: r.user.name,
     school: r.user.school,
     status: mapStatus(r.paymentProof),
   }));
+
+  return {
+    data: mapped,
+    page,
+    perPage,
+    total,
+    totalPages: Math.ceil(total / perPage),
+  };
 };
 
 export const uploadJuknisToCompetition = async (competitionId, fileKey) => {
