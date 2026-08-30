@@ -121,9 +121,12 @@ export const updateRegistrationStatus = async ({ id, status }) => {
         where: { email: registration.user.email },
       });
       if (!exist) {
-        const year = new Date().getFullYear();
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
         const rand = Math.floor(1000 + Math.random() * 9000);
-        const participantNumber = `MTS-${year}-${rand}`;
+        const participantNumber = `MTS-${year}${month}${day}-${rand}`;
 
         await tx.participant.create({
           data: {
