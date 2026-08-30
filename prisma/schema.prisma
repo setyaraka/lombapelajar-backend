@@ -105,13 +105,18 @@ model Exam {
 }
 
 model ExamStage {
-  id          String        @id @default(uuid())
-  name        String        @unique
-  description String?
-  position    Int           @default(0)
-  isActive    Boolean       @default(true)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id             String        @id @default(uuid())
+  name           String        @unique
+  description    String?
+  position       Int           @default(0)
+  isActive       Boolean       @default(true)
+  // Jumlah peserta (berdasarkan rank hasil "Hitung Ranking") yang lolos ke
+  // tahap berikutnya. Null = kelulusan belum diset oleh admin. Peserta yang
+  // rank-nya seri persis di angka cutoff ini semuanya tetap lolos (rank
+  // standar 1-2-2-4 sudah otomatis membagi rank sama untuk skor sama).
+  passingCutoff  Int?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   exams        Exam[]
   participants Participant[]

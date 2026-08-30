@@ -220,6 +220,21 @@ export const recomputeRanking = async (req, res) => {
   }
 };
 
+export const publishAnnouncement = async (req, res) => {
+  try {
+    res.json(
+      await service.publishStageAnnouncement(req.params.stageId, {
+        mode: req.body.mode,
+        file: req.file,
+        announcementLink: req.body.announcementLink,
+        competitionId: req.body.competitionId,
+      }),
+    );
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
 export const essayAnswers = async (req, res) => {
   try {
     res.json(await service.getEssayAnswers(req.params.attemptId));

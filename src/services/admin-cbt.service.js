@@ -2,6 +2,8 @@ import bcrypt from 'bcrypt';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import { cbtRepository } from '../repositories/cbt.repository.js';
+import { updateAnnouncementInCompetition } from './competition.service.js';
+import { uploadPoster } from './upload.service.js';
 import {
   assignmentSchema,
   examSchema,
@@ -59,6 +61,21 @@ const statusFromAssignment = (assignment, now = new Date()) => {
 const csvEscape = (value) => {
   const text = value === null || value === undefined ? '' : String(value);
   return `"${text.replace(/"/g, '""')}"`;
+};
+
+// Status kelulusan dihitung dari rank hasil "Hitung Ranking" dibanding
+// passingCutoff milik Stage exam ini. Null kalau rank belum dihitung atau
+// admin belum set cutoff-nya — di kasus itu status kelulusan memang belum
+// bisa ditentukan, bukan otomatis "Tidak Lulus".
+const passingStatus = (rank, passingCutoff) => {
+  if (!rank || !passingCutoff) return null;
+  return rank <= passingCutoff ? 'LULUS' : 'TIDAK_LULUS';
+};
+
+const passingStatusLabel = (status) => {
+  if (status === 'LULUS') return 'Lulus';
+  if (status === 'TIDAK_LULUS') return 'Tidak Lulus';
+  return '';
 };
 
 export const getDashboard = async (query = {}) => {
@@ -578,6 +595,10 @@ export const getResults = async (query) => {
       // pernah menekan "Hitung Ranking" untuk stage exam ini, atau attempt
       // ini belum tergabung ke exam manapun yang punya stage.
       rank: attempt.rank,
+      // Kelulusan (LULUS/TIDAK_LULUS/null) dari rank vs cutoff Stage exam
+      // ini — lihat passingStatus di atas.
+      passingCutoff: attempt.exam.stage?.passingCutoff ?? null,
+      status: passingStatus(attempt.rank, attempt.exam.stage?.passingCutoff),
       finishedAt: attempt.finishedAt,
       violationCount: attempt.violations.length,
       answerCount: attempt.answers.length,
@@ -654,6 +675,89 @@ export const recomputeStageRanking = async (stageId) => {
   );
 
   return { stageId, participantsRanked: sorted.length, attemptsUpdated: updates.length };
+};
+
+// Publish pengumuman hasil peserta SATU kompetisi pada satu Stage. Di-scope
+// ke (stageId + competitionId) karena ExamStage adalah entity global — nama
+// stage (mis. "TKD") dipakai bersama oleh banyak Lomba sekaligus, jadi
+// mengambil "semua exam di stage ini" tanpa filter kompetisi bisa
+// mencampur/membocorkan data peserta lomba lain. competitionId diambil dari
+// exam yang sedang dipilih admin di halaman Hasil Ujian, bukan diterka dari
+// seluruh isi stage.
+//
+// Slot pengumuman yang dipakai masih yang lama
+// (Competition.announcementPoster/announcementLink, lihat "Atur
+// Pengumuman") — 1 kompetisi = 1 slot pengumuman, jadi publish dari stage
+// lain di kompetisi yang sama akan menimpa punya stage sebelumnya. Setelah
+// publish, Exam-exam kompetisi ini di stage ini juga ditandai
+// resultPublished = true supaya nilai & rank peserta otomatis kebuka (lihat
+// exam.service.js — flag ini sudah dipakai untuk gating itu).
+export const publishStageAnnouncement = async (
+  stageId,
+  { mode, file, announcementLink, competitionId },
+) => {
+  if (!competitionId) {
+    const error = new Error('competitionId wajib diisi');
+    error.status = 400;
+    throw error;
+  }
+
+  const exams = await cbtRepository.prisma.exam.findMany({
+    where: { stageId, competitionId },
+    select: { id: true, title: true, competitionId: true },
+  });
+
+  if (exams.length === 0) {
+    const error = new Error('Tidak ada ujian pada tahap ini untuk kompetisi yang dipilih');
+    error.status = 400;
+    throw error;
+  }
+
+  const updateData = {};
+
+  if (mode === 'auto') {
+    const examIds = exams.map((exam) => exam.id);
+    const rows = await cbtRepository.results({
+      where: { status: 'FINISHED', examId: { in: examIds } },
+    });
+    rows.sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity));
+    const buffer = await buildResultsPdfBuffer(rows, {
+      title: `Hasil Ujian - ${exams[0].title}`,
+      columns: PARTICIPANT_RESULTS_COLUMNS,
+    });
+    updateData.announcementPoster = await uploadPoster({
+      buffer,
+      originalname: `hasil-${stageId}.pdf`,
+      mimetype: 'application/pdf',
+    });
+  } else if (mode === 'upload') {
+    if (!file) {
+      const error = new Error('File PDF wajib diupload');
+      error.status = 400;
+      throw error;
+    }
+    updateData.announcementPoster = await uploadPoster(file);
+  } else if (mode === 'url') {
+    if (!announcementLink) {
+      const error = new Error('URL pengumuman wajib diisi');
+      error.status = 400;
+      throw error;
+    }
+    updateData.announcementLink = announcementLink;
+  } else {
+    const error = new Error('Mode publish tidak dikenal');
+    error.status = 400;
+    throw error;
+  }
+
+  const competition = await updateAnnouncementInCompetition(competitionId, updateData);
+
+  await cbtRepository.prisma.exam.updateMany({
+    where: { id: { in: exams.map((exam) => exam.id) } },
+    data: { resultPublished: true },
+  });
+
+  return { competition, stageId, mode };
 };
 
 // Dipakai halaman "Hasil Ujian" admin untuk menampilkan & mengoreksi jawaban
@@ -771,6 +875,7 @@ export const exportResultsCsv = async (query) => {
     'Selesai Pada',
     'Nilai Akhir',
     'Ranking',
+    'Status',
   ];
   const lines = result.data.map((row) =>
     [
@@ -782,6 +887,7 @@ export const exportResultsCsv = async (query) => {
       row.finishedAt ? new Date(row.finishedAt).toLocaleString('id-ID') : '',
       row.score ?? '',
       row.rank ?? '',
+      passingStatusLabel(row.status),
     ]
       .map(csvEscape)
       .join(';'),
@@ -808,12 +914,14 @@ export const exportResultsExcel = async (query, res) => {
   worksheet.columns = [
     { header: 'Nomor Peserta', key: 'participantNumber', width: 20 },
     { header: 'Nama Peserta', key: 'participantName', width: 25 },
+    { header: 'Sekolah/Instansi', key: 'school', width: 28 },
     { header: 'Ujian', key: 'examTitle', width: 30 },
     { header: 'Lomba', key: 'competitionTitle', width: 30 },
     { header: 'Jumlah Jawaban', key: 'answerCount', width: 18 },
     { header: 'Selesai Pada', key: 'finishedAt', width: 22 },
     { header: 'Nilai Akhir', key: 'score', width: 15 },
     { header: 'Ranking', key: 'rank', width: 12 },
+    { header: 'Status', key: 'status', width: 14 },
   ];
 
   const headerRow = worksheet.getRow(1);
@@ -824,12 +932,16 @@ export const exportResultsExcel = async (query, res) => {
     worksheet.addRow({
       participantNumber: row.participant?.participantNumber || '-',
       participantName: row.participant?.name || row.user.name,
+      // Sekolah cuma ada di User (Participant tidak punya field school
+      // sendiri), jadi selalu ambil dari row.user, bukan row.participant.
+      school: row.user.school || '-',
       examTitle: row.exam.title,
       competitionTitle: row.exam.competition?.title || '-',
       answerCount: row.answers.length,
       finishedAt: row.finishedAt ? new Date(row.finishedAt).toLocaleString('id-ID') : '',
       score: row.score ?? '',
       rank: row.rank ?? '',
+      status: passingStatusLabel(passingStatus(row.rank, row.exam.stage?.passingCutoff)),
     });
   });
 
@@ -864,6 +976,144 @@ export const exportResultsExcel = async (query, res) => {
 // dari sekadar menulis baris Excel). Untuk skala ratusan peserta per exam,
 // ini masih wajar; kalau nanti ribuan peserta dalam satu export, pertimbangkan
 // job terpisah dari proses utama (sama seperti catatan P1 di audit produksi).
+// Menggambar isi tabel hasil ujian (judul + tabel + garis) ke sebuah
+// PDFDocument yang sudah dibuat oleh caller. Dipisah dari exportResultsPdf
+// supaya bisa dipakai ulang oleh publishStageAnnouncement (mode 'auto') yang
+// perlu PDF yang sama tapi ditulis ke buffer, bukan langsung ke response.
+// Kolom lengkap (dilihat admin lewat tombol Export PDF) vs kolom yang
+// dilihat peserta (PDF hasil "Publish Pengumuman" mode auto) — peserta
+// sengaja tidak diberi Nilai/Ranking/Jml Jawaban/Selesai Pada, cukup admin
+// yang tahu detail teknis itu. Lebar tiap set dijaga totalnya tetap muat di
+// lebar halaman A4 landscape (±760pt setelah margin).
+const FULL_RESULTS_COLUMNS = [
+  { key: 'participantNumber', label: 'Nomor Peserta', width: 85 },
+  { key: 'participantName', label: 'Nama Peserta', width: 100 },
+  { key: 'school', label: 'Sekolah/Instansi', width: 100 },
+  { key: 'examTitle', label: 'Ujian', width: 85 },
+  { key: 'competitionTitle', label: 'Lomba', width: 110 },
+  { key: 'answerCount', label: 'Jml Jawaban', width: 45 },
+  { key: 'finishedAt', label: 'Selesai Pada', width: 85 },
+  { key: 'score', label: 'Nilai', width: 40 },
+  { key: 'rank', label: 'Ranking', width: 40 },
+  { key: 'status', label: 'Status', width: 55 },
+];
+
+const PARTICIPANT_RESULTS_COLUMNS = [
+  { key: 'participantNumber', label: 'Nomor Peserta', width: 120 },
+  { key: 'participantName', label: 'Nama Peserta', width: 170 },
+  { key: 'school', label: 'Sekolah/Instansi', width: 190 },
+  { key: 'competitionTitle', label: 'Lomba', width: 190 },
+  { key: 'status', label: 'Status', width: 90 },
+];
+
+const drawResultsPdfContent = (
+  doc,
+  rows,
+  { title = 'Hasil Ujian', columns = FULL_RESULTS_COLUMNS } = {},
+) => {
+  doc.font('Helvetica-Bold').fontSize(16).text(title, { align: 'center' });
+  doc
+    .font('Helvetica')
+    .fontSize(9)
+    .fillColor('#64748b')
+    .text(`Diekspor pada ${new Date().toLocaleString('id-ID')}`, { align: 'center' });
+  doc.fillColor('#000000');
+  doc.moveDown(1);
+
+  const MIN_ROW_HEIGHT = 20;
+  const CELL_VERTICAL_PADDING = 10; // 5 di atas + 5 di bawah teks, lihat offset "y + 5" di bawah
+  const tableLeft = doc.page.margins.left;
+  const tableRight = doc.page.width - doc.page.margins.right;
+
+  // Tinggi baris DULU dihitung sebagai angka tetap (20pt), padahal beberapa
+  // isi kolom (judul lomba yang panjang, label header "Jml Jawaban") bisa
+  // wrap jadi 2 baris di lebar kolomnya — hasilnya teks & garis pemisah
+  // saling timpa. Dihitung dinamis dari heightOfString tiap kolom (nilai
+  // maksimum di antara semua kolom baris itu) supaya baris yang wrap otomatis
+  // jadi lebih tinggi, bukan kepotong.
+  const measureRowHeight = (cellValues, font) => {
+    doc.font(font).fontSize(9);
+    let maxTextHeight = 0;
+    columns.forEach((column) => {
+      const height = doc.heightOfString(String(cellValues[column.key] ?? ''), {
+        width: column.width - 8,
+      });
+      if (height > maxTextHeight) maxTextHeight = height;
+    });
+    return Math.max(MIN_ROW_HEIGHT, maxTextHeight + CELL_VERTICAL_PADDING);
+  };
+
+  const headerValues = Object.fromEntries(columns.map((column) => [column.key, column.label]));
+
+  const drawHeaderRow = () => {
+    // Ambil doc.y SEKALI di awal dan pakai nilai tetap itu untuk semua kolom
+    // (sama seperti loop baris data di bawah) — doc.text() selalu menggeser
+    // doc.y turun tiap dipanggil, jadi kalau dibaca ulang per kolom, tiap
+    // label header numpuk makin turun (efek "tangga").
+    const headerHeight = measureRowHeight(headerValues, 'Helvetica-Bold');
+    let x = tableLeft;
+    const headerY = doc.y;
+    doc.font('Helvetica-Bold').fontSize(9);
+    columns.forEach((column) => {
+      doc.text(column.label, x + 4, headerY + 5, { width: column.width - 8 });
+      x += column.width;
+    });
+    const lineY = headerY + headerHeight;
+    doc.moveTo(tableLeft, lineY).lineTo(tableRight, lineY).strokeColor('#cbd5e1').stroke();
+    doc.y = lineY;
+  };
+
+  drawHeaderRow();
+
+  // Baris genap/ganjil diberi warna selang-seling (zebra stripe) supaya
+  // tabel lebih gampang dibaca sejajar per baris — dihitung dari index di
+  // seluruh data (bukan direset tiap ganti halaman), jadi pola selang-seling
+  // tetap konsisten walau tabelnya lebih dari satu halaman.
+  rows.forEach((row, index) => {
+    const values = {
+      participantNumber: row.participant?.participantNumber || '-',
+      participantName: row.participant?.name || row.user.name,
+      // Sekolah cuma ada di User (Participant tidak punya field school
+      // sendiri), jadi selalu ambil dari row.user, bukan row.participant.
+      school: row.user.school || '-',
+      examTitle: row.exam.title,
+      competitionTitle: row.exam.competition?.title || '-',
+      answerCount: String(row.answers.length),
+      finishedAt: row.finishedAt ? new Date(row.finishedAt).toLocaleString('id-ID') : '-',
+      score: row.score ?? '-',
+      rank: row.rank ? `#${row.rank}` : '-',
+      status: passingStatusLabel(passingStatus(row.rank, row.exam.stage?.passingCutoff)) || '-',
+    };
+    const rowHeight = measureRowHeight(values, 'Helvetica');
+
+    if (doc.y + rowHeight > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+      drawHeaderRow();
+    }
+
+    const rowY = doc.y;
+    if (index % 2 === 1) {
+      doc.rect(tableLeft, rowY, tableRight - tableLeft, rowHeight).fill('#f1f5f9');
+      doc.fillColor('#000000');
+    }
+
+    let x = tableLeft;
+    doc.font('Helvetica').fontSize(9);
+    columns.forEach((column) => {
+      doc.text(String(values[column.key]), x + 4, rowY + 5, { width: column.width - 8 });
+      x += column.width;
+    });
+    doc.y = rowY + rowHeight;
+  });
+
+  if (rows.length === 0) {
+    doc
+      .font('Helvetica')
+      .fontSize(10)
+      .text('Belum ada hasil ujian yang tersedia.', tableLeft, doc.y + 10);
+  }
+};
+
 export const exportResultsPdf = async (query, res) => {
   const examId = query.examId || '';
   const where = {
@@ -881,84 +1131,25 @@ export const exportResultsPdf = async (query, res) => {
   res.setHeader('Content-Disposition', 'attachment; filename="hasil-ujian.pdf"');
   doc.pipe(res);
 
-  doc.font('Helvetica-Bold').fontSize(16).text('Hasil Ujian', { align: 'center' });
-  doc
-    .font('Helvetica')
-    .fontSize(9)
-    .fillColor('#64748b')
-    .text(`Diekspor pada ${new Date().toLocaleString('id-ID')}`, { align: 'center' });
-  doc.fillColor('#000000');
-  doc.moveDown(1);
-
-  const columns = [
-    { key: 'participantNumber', label: 'Nomor Peserta', width: 95 },
-    { key: 'participantName', label: 'Nama Peserta', width: 120 },
-    { key: 'examTitle', label: 'Ujian', width: 130 },
-    { key: 'competitionTitle', label: 'Lomba', width: 130 },
-    { key: 'answerCount', label: 'Jml Jawaban', width: 65 },
-    { key: 'finishedAt', label: 'Selesai Pada', width: 100 },
-    { key: 'score', label: 'Nilai', width: 55 },
-    { key: 'rank', label: 'Ranking', width: 55 },
-  ];
-  const rowHeight = 20;
-  const tableLeft = doc.page.margins.left;
-  const tableRight = doc.page.width - doc.page.margins.right;
-
-  const drawHeaderRow = () => {
-    // Ambil doc.y SEKALI di awal dan pakai nilai tetap itu untuk semua kolom
-    // (sama seperti loop baris data di bawah) — doc.text() selalu menggeser
-    // doc.y turun tiap dipanggil, jadi kalau dibaca ulang per kolom, tiap
-    // label header numpuk makin turun (efek "tangga").
-    let x = tableLeft;
-    const headerY = doc.y;
-    doc.font('Helvetica-Bold').fontSize(9);
-    columns.forEach((column) => {
-      doc.text(column.label, x + 4, headerY + 5, { width: column.width - 8 });
-      x += column.width;
-    });
-    const lineY = headerY + rowHeight;
-    doc.moveTo(tableLeft, lineY).lineTo(tableRight, lineY).strokeColor('#cbd5e1').stroke();
-    doc.y = lineY;
-  };
-
-  drawHeaderRow();
-
-  rows.forEach((row) => {
-    if (doc.y + rowHeight > doc.page.height - doc.page.margins.bottom) {
-      doc.addPage();
-      drawHeaderRow();
-    }
-
-    const values = {
-      participantNumber: row.participant?.participantNumber || '-',
-      participantName: row.participant?.name || row.user.name,
-      examTitle: row.exam.title,
-      competitionTitle: row.exam.competition?.title || '-',
-      answerCount: String(row.answers.length),
-      finishedAt: row.finishedAt ? new Date(row.finishedAt).toLocaleString('id-ID') : '-',
-      score: row.score ?? '-',
-      rank: row.rank ? `#${row.rank}` : '-',
-    };
-
-    let x = tableLeft;
-    const rowY = doc.y;
-    doc.font('Helvetica').fontSize(9);
-    columns.forEach((column) => {
-      doc.text(String(values[column.key]), x + 4, rowY + 5, { width: column.width - 8 });
-      x += column.width;
-    });
-    doc.y = rowY + rowHeight;
-  });
-
-  if (rows.length === 0) {
-    doc
-      .font('Helvetica')
-      .fontSize(10)
-      .text('Belum ada hasil ujian yang tersedia.', tableLeft, doc.y + 10);
-  }
+  drawResultsPdfContent(doc, rows);
 
   doc.end();
 };
+
+// Sama seperti exportResultsPdf, tapi hasilnya dikumpulkan jadi Buffer di
+// memori (bukan di-stream ke response) — dipakai publishStageAnnouncement
+// mode 'auto' supaya PDF-nya bisa langsung diupload sebagai poster
+// pengumuman, bukan didownload oleh browser admin.
+const buildResultsPdfBuffer = (rows, options) =>
+  new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
+    const chunks = [];
+    doc.on('data', (chunk) => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+    drawResultsPdfContent(doc, rows, options);
+    doc.end();
+  });
 
 export const listRegisteredUsers = async () => {
   return cbtRepository.prisma.registration.findMany({

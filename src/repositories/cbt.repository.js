@@ -226,7 +226,9 @@ export const cbtRepository = {
       include: {
         participant: true,
         user: true,
-        exam: { include: { competition: true } },
+        // `stage` disertakan supaya status kelulusan (rank vs
+        // stage.passingCutoff) bisa dihitung tanpa query tambahan.
+        exam: { include: { competition: true, stage: true } },
         answers: true,
         violations: true,
       },

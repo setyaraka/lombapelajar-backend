@@ -8,6 +8,9 @@ export const stageSchema = z.object({
   description: optionalString,
   position: z.coerce.number().int().min(0).default(0),
   isActive: z.coerce.boolean().default(true),
+  // Jumlah peserta yang lolos ke tahap berikutnya, berdasarkan rank hasil
+  // "Hitung Ranking". Null = kelulusan belum diset.
+  passingCutoff: z.coerce.number().int().min(1).optional().nullable(),
 });
 
 export const examSchema = z.object({

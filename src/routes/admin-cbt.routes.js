@@ -1,6 +1,7 @@
 import express from 'express';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { adminOnly } from '../middleware/admin.middleware.js';
+import { upload } from '../middleware/upload.middleware.js';
 import * as ctrl from '../controllers/admin-cbt.controller.js';
 
 const router = express.Router();
@@ -14,6 +15,11 @@ router.post('/stages', ctrl.createStage);
 router.put('/stages/:id', ctrl.updateStage);
 router.delete('/stages/:id', ctrl.deleteStage);
 router.post('/stages/:stageId/recompute-ranking', ctrl.recomputeRanking);
+router.post(
+  '/stages/:stageId/publish-announcement',
+  upload.single('file'),
+  ctrl.publishAnnouncement,
+);
 
 router.get('/exams', ctrl.listExams);
 router.get('/exams/:id', ctrl.getExam);
