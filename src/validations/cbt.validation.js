@@ -68,6 +68,11 @@ export const paginationSchema = z.object({
   status: z.string().trim().optional().default(''),
   stageId: z.string().trim().optional().default(''),
   examId: z.string().trim().optional().default(''),
+  // Dipakai listParticipants/listParticipantIds - filter tabel Manajemen
+  // Peserta berdasarkan lomba (competitionId) dan status assign
+  // ('true'/'false'/'' = semua).
+  competitionId: z.string().trim().optional().default(''),
+  assigned: z.enum(['true', 'false', '']).optional().default(''),
   // Dipakai listExams - default 'startAt' (perilaku lama, dipakai tabel
   // Jadwal & Ujian yang memang perlu urut kronologis tanggal ujian).
   // 'updatedAt' dipakai picker ujian di Bank Soal, supaya ujian yang baru

@@ -24,6 +24,7 @@ router.delete('/exams/:id', ctrl.deleteExam);
 
 router.get('/registered-users', ctrl.listRegisteredUsers);
 router.get('/participants', ctrl.listParticipants);
+router.get('/participants/ids', ctrl.listParticipantIds);
 router.post('/participants', ctrl.createParticipant);
 router.put('/participants/:id', ctrl.updateParticipant);
 router.delete('/participants/:id', ctrl.deleteParticipant);

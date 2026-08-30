@@ -106,6 +106,14 @@ export const listParticipants = async (req, res) => {
   }
 };
 
+export const listParticipantIds = async (req, res) => {
+  try {
+    res.json({ ids: await service.listParticipantIds(req.query) });
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
 export const createParticipant = async (req, res) => {
   try {
     res.json(await service.createParticipant(req.body));

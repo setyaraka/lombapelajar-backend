@@ -93,8 +93,24 @@ export const cbtRepository = {
       orderBy: { createdAt: 'desc' },
       include: {
         stage: true,
-        assignments: { include: { exam: true } },
+        assignments: { include: { exam: { include: { competition: true } } } },
+        // Dipakai untuk menurunkan "lomba" peserta ini (lihat catatan di
+        // buildParticipantWhere di admin-cbt.service.js) - Participant tidak
+        // punya field competitionId langsung, jadi ditelusuri lewat
+        // Registration milik User yang sama.
+        user: { include: { registrations: { include: { competition: true } } } },
       },
+    });
+  },
+
+  // Sama seperti listParticipants tapi tanpa paginasi, cuma id - dipakai
+  // fitur "Pilih Semua" di frontend supaya bisa pilih semua peserta yang
+  // cocok filter lintas halaman, bukan cuma yang tampil di halaman aktif.
+  listParticipantIds(where) {
+    return prisma.participant.findMany({
+      where,
+      select: { id: true },
+      orderBy: { createdAt: 'desc' },
     });
   },
 

@@ -252,22 +252,38 @@ export const toggleExam = async (id, isActive) => {
   });
 };
 
+// Where clause tabel Manajemen Peserta - dipakai bareng oleh listParticipants
+// (paginated, buat tabel) dan listParticipantIds (semua id tanpa paginasi,
+// buat fitur "Pilih Semua").
+const buildParticipantWhere = ({ search, stageId, competitionId, assigned }) => ({
+  AND: [
+    search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+            { participantNumber: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {},
+    stageId ? { stageId } : {},
+    // Participant tidak punya competitionId langsung - ditelusuri lewat
+    // Registration milik User yang sama (lihat catatan di
+    // cbtRepository.listParticipants).
+    competitionId ? { user: { registrations: { some: { competitionId } } } } : {},
+    // "Belum di-assign" disamakan dengan stageId kosong - di assignParticipants,
+    // stageId peserta dan assignment ujiannya selalu di-set bersamaan, jadi
+    // stageId null = representasi paling sederhana dari "belum diproses sama
+    // sekali", tanpa perlu query terpisah ke tabel ExamAssignment.
+    assigned === 'true' ? { stageId: { not: null } } : {},
+    assigned === 'false' ? { stageId: null } : {},
+  ],
+});
+
 export const listParticipants = async (query) => {
-  const { page, perPage, search, stageId, skip, take } = toPagination(query);
-  const where = {
-    AND: [
-      search
-        ? {
-            OR: [
-              { name: { contains: search, mode: 'insensitive' } },
-              { email: { contains: search, mode: 'insensitive' } },
-              { participantNumber: { contains: search, mode: 'insensitive' } },
-            ],
-          }
-        : {},
-      stageId ? { stageId } : {},
-    ],
-  };
+  const { page, perPage, skip, take, search, stageId, competitionId, assigned } =
+    toPagination(query);
+  const where = buildParticipantWhere({ search, stageId, competitionId, assigned });
 
   const [data, total] = await Promise.all([
     cbtRepository.listParticipants({ where, skip, take }),
@@ -278,6 +294,13 @@ export const listParticipants = async (query) => {
     data,
     meta: { page, perPage, total, totalPages: Math.ceil(total / perPage) },
   };
+};
+
+export const listParticipantIds = async (query) => {
+  const { search, stageId, competitionId, assigned } = toPagination(query);
+  const where = buildParticipantWhere({ search, stageId, competitionId, assigned });
+  const rows = await cbtRepository.listParticipantIds(where);
+  return rows.map((row) => row.id);
 };
 
 export const createParticipant = async (body) => {
