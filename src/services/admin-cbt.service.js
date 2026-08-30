@@ -515,6 +515,9 @@ export const getMonitoring = async (query) => {
         assignmentId: assignment.id,
         participant: assignment.participant,
         exam: assignment.exam,
+        // Nama lomba/kompetisi exam ini, supaya admin bisa membedakan exam
+        // dengan judul yang sama tapi dari kompetisi berbeda.
+        competitionTitle: assignment.exam.competition?.title ?? null,
         attemptId: attempt?.id ?? null,
         status: statusFromAssignment(assignment, now),
         remainingMs,
@@ -543,6 +546,9 @@ export const getResults = async (query) => {
       participantName: attempt.participant?.name || attempt.user.name,
       participantNumber: attempt.participant?.participantNumber || '-',
       examTitle: attempt.exam.title,
+      // Nama lomba/kompetisi exam ini, supaya admin bisa membedakan exam
+      // dengan judul yang sama tapi dari kompetisi berbeda.
+      competitionTitle: attempt.exam.competition?.title ?? null,
       score: attempt.score,
       // rank dihitung per Stage (bisa gabungan >1 exam), bukan otomatis per
       // attempt — lihat recomputeStageRanking. Null berarti admin belum
@@ -776,6 +782,7 @@ export const exportResultsExcel = async (query, res) => {
     { header: 'Nomor Peserta', key: 'participantNumber', width: 20 },
     { header: 'Nama Peserta', key: 'participantName', width: 25 },
     { header: 'Ujian', key: 'examTitle', width: 30 },
+    { header: 'Lomba', key: 'competitionTitle', width: 30 },
     { header: 'Jumlah Jawaban', key: 'answerCount', width: 18 },
     { header: 'Selesai Pada', key: 'finishedAt', width: 22 },
     { header: 'Nilai Akhir', key: 'score', width: 15 },
@@ -791,6 +798,7 @@ export const exportResultsExcel = async (query, res) => {
       participantNumber: row.participant?.participantNumber || '-',
       participantName: row.participant?.name || row.user.name,
       examTitle: row.exam.title,
+      competitionTitle: row.exam.competition?.title || '-',
       answerCount: row.answers.length,
       finishedAt: row.finishedAt ? new Date(row.finishedAt).toLocaleString('id-ID') : '',
       score: row.score ?? '',
@@ -854,10 +862,11 @@ export const exportResultsPdf = async (query, res) => {
 
   const columns = [
     { key: 'participantNumber', label: 'Nomor Peserta', width: 95 },
-    { key: 'participantName', label: 'Nama Peserta', width: 135 },
-    { key: 'examTitle', label: 'Ujian', width: 150 },
+    { key: 'participantName', label: 'Nama Peserta', width: 120 },
+    { key: 'examTitle', label: 'Ujian', width: 130 },
+    { key: 'competitionTitle', label: 'Lomba', width: 130 },
     { key: 'answerCount', label: 'Jml Jawaban', width: 65 },
-    { key: 'finishedAt', label: 'Selesai Pada', width: 115 },
+    { key: 'finishedAt', label: 'Selesai Pada', width: 100 },
     { key: 'score', label: 'Nilai', width: 55 },
     { key: 'rank', label: 'Ranking', width: 55 },
   ];
@@ -889,6 +898,7 @@ export const exportResultsPdf = async (query, res) => {
       participantNumber: row.participant?.participantNumber || '-',
       participantName: row.participant?.name || row.user.name,
       examTitle: row.exam.title,
+      competitionTitle: row.exam.competition?.title || '-',
       answerCount: String(row.answers.length),
       finishedAt: row.finishedAt ? new Date(row.finishedAt).toLocaleString('id-ID') : '-',
       score: row.score ?? '-',

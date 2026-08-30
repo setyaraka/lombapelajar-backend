@@ -184,7 +184,7 @@ export const cbtRepository = {
       orderBy: { assignedAt: 'desc' },
       include: {
         participant: true,
-        exam: true,
+        exam: { include: { competition: true } },
         attempts: {
           orderBy: { startedAt: 'desc' },
           take: 1,
@@ -210,7 +210,7 @@ export const cbtRepository = {
       include: {
         participant: true,
         user: true,
-        exam: true,
+        exam: { include: { competition: true } },
         answers: true,
         violations: true,
       },
