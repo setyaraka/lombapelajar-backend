@@ -774,6 +774,10 @@ export const exportResultsExcel = async (query, res) => {
   };
 
   const rows = await cbtRepository.results({ where });
+  // Export selalu diurutkan berdasarkan ranking (bukan finishedAt seperti
+  // default cbtRepository.results), rank null (belum diranking) ditaruh
+  // di akhir.
+  rows.sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity));
 
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Hasil Ujian');
@@ -844,6 +848,9 @@ export const exportResultsPdf = async (query, res) => {
   };
 
   const rows = await cbtRepository.results({ where });
+  // Sama seperti exportResultsExcel — urutkan berdasarkan ranking, rank
+  // null (belum diranking) ditaruh di akhir.
+  rows.sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity));
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
 
