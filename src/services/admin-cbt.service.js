@@ -875,13 +875,18 @@ export const exportResultsPdf = async (query, res) => {
   const tableRight = doc.page.width - doc.page.margins.right;
 
   const drawHeaderRow = () => {
+    // Ambil doc.y SEKALI di awal dan pakai nilai tetap itu untuk semua kolom
+    // (sama seperti loop baris data di bawah) — doc.text() selalu menggeser
+    // doc.y turun tiap dipanggil, jadi kalau dibaca ulang per kolom, tiap
+    // label header numpuk makin turun (efek "tangga").
     let x = tableLeft;
+    const headerY = doc.y;
     doc.font('Helvetica-Bold').fontSize(9);
     columns.forEach((column) => {
-      doc.text(column.label, x + 4, doc.y + 5, { width: column.width - 8 });
+      doc.text(column.label, x + 4, headerY + 5, { width: column.width - 8 });
       x += column.width;
     });
-    const lineY = doc.y + rowHeight;
+    const lineY = headerY + rowHeight;
     doc.moveTo(tableLeft, lineY).lineTo(tableRight, lineY).strokeColor('#cbd5e1').stroke();
     doc.y = lineY;
   };
