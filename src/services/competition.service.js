@@ -96,9 +96,7 @@ export const getCompetitionById = async (id, userId) => {
         ? mapStatus(competition.registrations[0].paymentProof)
         : null,
     creationFile:
-      userId && competition.registrations[0]
-        ? competition.registrations[0].creationFile
-        : null,
+      userId && competition.registrations[0] ? competition.registrations[0].creationFile : null,
   };
 };
 
@@ -233,7 +231,10 @@ export const uploadJuknisToCompetition = async (competitionId, fileKey) => {
   });
 };
 
-export const updateAnnouncementInCompetition = async (competitionId, { announcementPoster, announcementLink }) => {
+export const updateAnnouncementInCompetition = async (
+  competitionId,
+  { announcementPoster, announcementLink },
+) => {
   const data = {};
   if (announcementPoster !== undefined) data.announcementPoster = announcementPoster;
   if (announcementLink !== undefined) data.announcementLink = announcementLink;

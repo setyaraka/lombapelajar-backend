@@ -32,7 +32,7 @@ router.put(
   authMiddleware,
   adminOnly,
   upload.single('file'),
-  ctrl.updateAnnouncement
+  ctrl.updateAnnouncement,
 );
 router.put(
   '/:id',
