@@ -29,6 +29,7 @@ model Competition {
   requirements CompetitionRequirement[]
   timelines     CompetitionTimeline[]
   registrations Registration[]
+  exams         Exam[]
 }
 
 model PaymentProof {
@@ -70,6 +71,190 @@ model User {
   birthDate     DateTime?
   school        String?
   registrations Registration[]
+  examAttempts  ExamAttempt[]
+  activityLogs  ExamActivityLog[]
+  participantProfile Participant?
+}
+
+model Exam {
+  id               String        @id @default(uuid())
+  competitionId    String?
+  stageId          String?
+  title            String
+  description      String?
+  startAt          DateTime
+  endAt            DateTime
+  durationMinutes  Int
+  maxAttempts      Int           @default(1)
+  randomizeQuestions Boolean     @default(true)
+  randomizeOptions Boolean       @default(false)
+  announcementAt   DateTime?
+  resultPublished  Boolean       @default(false)
+  status           ExamStatus    @default(DRAFT)
+  isActive         Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  competition      Competition?  @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  stage            ExamStage?    @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  questions        ExamQuestion[]
+  attempts         ExamAttempt[]
+  assignments      ExamAssignment[]
+
+  @@index([stageId, startAt, status])
+}
+
+model ExamStage {
+  id             String        @id @default(uuid())
+  name           String        @unique
+  description    String?
+  position       Int           @default(0)
+  isActive       Boolean       @default(true)
+  // Jumlah peserta (berdasarkan rank hasil "Hitung Ranking") yang lolos ke
+  // tahap berikutnya. Null = kelulusan belum diset oleh admin. Peserta yang
+  // rank-nya seri persis di angka cutoff ini semuanya tetap lolos (rank
+  // standar 1-2-2-4 sudah otomatis membagi rank sama untuk skor sama).
+  passingCutoff  Int?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  exams        Exam[]
+  participants Participant[]
+}
+
+model Participant {
+  id                String        @id @default(uuid())
+  userId            String?       @unique
+  stageId           String?
+  name              String
+  email             String        @unique
+  participantNumber String        @unique
+  isActive          Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user              User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  stage             ExamStage?    @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  assignments       ExamAssignment[]
+  attempts          ExamAttempt[]
+
+  @@index([stageId, isActive])
+}
+
+model ExamQuestion {
+  id          String       @id @default(uuid())
+  examId      String
+  text        String
+  type        QuestionType @default(SINGLE_CHOICE)
+  points      Int          @default(1)
+  position    Int          @default(0)
+  createdAt   DateTime     @default(now())
+
+  exam        Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  options     ExamOption[]
+  answers     ExamAnswer[]
+}
+
+model ExamOption {
+  id          String       @id @default(uuid())
+  questionId  String
+  text        String
+  isCorrect   Boolean      @default(false)
+  position    Int          @default(0)
+
+  question    ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model ExamAttempt {
+  id             String          @id @default(uuid())
+  userId         String
+  participantId  String?
+  assignmentId   String?
+  examId         String
+  startedAt      DateTime        @default(now())
+  expiredAt      DateTime
+  finishedAt     DateTime?
+  status         ExamAttemptStatus @default(IN_PROGRESS)
+  questionOrder  Json
+  optionOrder    Json?
+  lastQuestionId String?
+  score          Float?
+  passed         Boolean?
+  rank           Int?
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  participant    Participant?    @relation(fields: [participantId], references: [id], onDelete: SetNull)
+  assignment     ExamAssignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  exam           Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  answers        ExamAnswer[]
+  logs           ExamActivityLog[]
+  violations     ViolationLog[]
+
+  @@index([userId, examId, status])
+  @@index([participantId, examId, status])
+}
+
+model ExamAssignment {
+  id            String        @id @default(uuid())
+  participantId String
+  examId        String
+  assignedAt    DateTime      @default(now())
+  status        AssignmentStatus @default(ASSIGNED)
+
+  participant   Participant   @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  exam          Exam          @relation(fields: [examId], references: [id], onDelete: Cascade)
+  attempts      ExamAttempt[]
+
+  @@unique([participantId, examId])
+  @@index([examId, status])
+}
+
+model ExamAnswer {
+  id             String       @id @default(uuid())
+  attemptId      String
+  questionId     String
+  answer         Json
+  savedAt        DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  pointsEarned   Float?
+  isCorrect      Boolean?
+  gradedManually Boolean      @default(false)
+
+  attempt     ExamAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question    ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+}
+
+model ExamActivityLog {
+  id          String       @id @default(uuid())
+  userId      String
+  attemptId   String?
+  event       ExamActivityEvent
+  timestamp   DateTime     @default(now())
+  metadata    Json?
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempt     ExamAttempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+
+  @@index([userId, attemptId, event])
+}
+
+model ViolationLog {
+  id            String       @id @default(uuid())
+  participantId String?
+  attemptId     String?
+  examId        String?
+  type          String
+  severity      String       @default("LOW")
+  timestamp     DateTime     @default(now())
+  metadata      Json?
+
+  attempt       ExamAttempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+
+  @@index([participantId, examId, type])
+  @@index([attemptId, timestamp])
 }
 
 model CompetitionRequirement {
@@ -103,4 +288,41 @@ enum RegistrationStatus {
 enum Role {
   ADMIN
   PESERTA
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  ESSAY
+}
+
+enum ExamAttemptStatus {
+  IN_PROGRESS
+  FINISHED
+  EXPIRED
+}
+
+enum ExamStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  CANCELLED
+}
+
+enum ExamActivityEvent {
+  LOGIN
+  START_EXAM
+  ANSWER_CHANGED
+  AUTO_SAVE
+  TAB_SWITCH
+  WINDOW_BLUR
+  WINDOW_FOCUS
+  SUBMIT
+  AUTO_SUBMIT
+  RESUME_EXAM
 }

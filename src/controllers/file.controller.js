@@ -15,8 +15,7 @@ export const proxyFile = async (req, res) => {
     res.setHeader('Content-Type', response.ContentType || 'application/octet-stream');
 
     response.Body.pipe(res);
-  } catch (err) {
-    console.error(err);
+  } catch {
     res.status(404).send('File not found');
   }
 };
