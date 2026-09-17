@@ -14,6 +14,11 @@ import { authMiddleware } from './middleware/auth.middleware.js';
 dotenv.config();
 const app = express();
 
+// Trust the first proxy hop (Nginx on the same host) so req.ip / X-Forwarded-*
+// reflect the real client instead of always resolving to 127.0.0.1, which
+// would break per-IP rate limiting once behind a reverse proxy.
+app.set('trust proxy', 1);
+
 /* ================= SECURITY HEADERS ================= */
 app.use(helmet());
 
